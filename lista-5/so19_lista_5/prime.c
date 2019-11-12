@@ -31,23 +31,21 @@ static noreturn void filter_chain(pipe_t in) {
   if(ReadNum(in, &prime))
   {
     printf("%ld\n", prime);
-
     pipe_t me_to_child_pipe = MakePipe();
     pid_t child_pid = Fork();
     if(child_pid != 0) // parent (Fork() exits on failure)
     {
-      // CloseWriteEnd(in);
-      filter(in, me_to_child_pipe, prime);
       CloseReadEnd(me_to_child_pipe);
+      filter(in, me_to_child_pipe, prime);
+      CloseWriteEnd(me_to_child_pipe);
+      int status;
+      Waitpid(child_pid, &status, 0);
     }
     else // child
     {
+      CloseWriteEnd(me_to_child_pipe);
       filter_chain(me_to_child_pipe);
     }
-    
-    // int status;
-    // printf("%d\n", Waitpid(chi
-    ld_pid, &status, 0));
   }
   exit(EXIT_SUCCESS);
 }

@@ -115,19 +115,36 @@ Liczbę dowiązań odczytasz używając `stat [-x]`, albo w drugiej kolumnie `ls
 Komentarz: Prowadzący przedmiot zgadza się z autorem krytyki. Czy i Ty widzisz brzydotę tego interfejsu?*
 
 ``` c
-     #include <sys/ioctl.h>
-     int
-     ioctl(int fildes, unsigned long request, ...);
+#include <sys/ioctl.h>
+int
+ioctl(int fildes, unsigned long request, ...);
 ```
 
 > The ioctl() function manipulates the underlying device parameters of special files.  In particular, many operating characteristics of character special files (e.g. terminals) may be controlled with ioctl() requests. The argument fildes must be an open file descriptor.  
 > An  ioctl request has encoded in it whether the argument is an ''in'' parameter or ''out'' parameter, and the size of the argument argp in bytes
 
+``` c
+/*
+* Ioctl's have the command encoded in the lower word, and the size of
+* any in or out parameters in the upper word.  The high 3 bits of the
+* upper word are used to encode the in/out status of the parameter.
+*31 29 28                     16 15            8 7             0
+*+---------------------------------------------------------------+
+*| I/O | Parameter Length        | Command Group | Command       |
+*+---------------------------------------------------------------+
+*/
+```
+
 `ioctl`, choć będący częścią POSIX, to odrażający (dotykać w rękawiczkach (sic!)) monolit. Widać to poniżej lub w kolejnym zadaniu.
+
+* pile of macros
+* poorly documented
+* portability issues
+* because of file is a stream of bytes, there is no other way to change device state
 
 * `DIOCEJECT` – change `DIOCEJECT` `ioctl` to unlock (eject?) the media if no other partition are open before eject
 * `KIOCTYPE` – get keyboard type
-* `SIOCGIFCONF`
+* `SIOCGIFCONF` – zwraca strukturę `ifconf`
   > The local IP address of an interface can be obtained via the SIOCGIFCONF
 
   [changes in NetBSD – replacement of `ioctl` to `getifaddrs` in order to get IP address](https://grok.dragonflybsd.org/xref/netbsd/external/bsd/libpcap/dist/CHANGES?r=462189e7)
@@ -142,27 +159,28 @@ void tty_curpos(int fd, int *x, int *y) {
   struct termios ts, ots;
 
   tcgetattr(fd, &ts); // the current terminal state snapshot
-  memcpy(&ots, &ts, sizeof(struct termios)); // copy structure
-  ts.c_lflag &= ~(ECHO | ICANON | CREAD);
+  memcpy(&ots, &ts, sizeof(struct termios)); // copy structure (dst -> src)
+  ts.c_lflag &= ~(ECHO | ICANON | CREAD); // send characters without displaying them
+  //czy ta flaga CREAD może tu być
 
-  tcsetattr(fd, TCSADRAIN, &ts);
+  tcsetattr(fd, TCSADRAIN, &ts); // set from ts to fd; TCSADRAIN means the change will be performed after all output to fd has been transmitted
   int m;
-  ioctl(fd, TIOCINQ, &m);
+  ioctl(fd, TIOCINQ, &m); // Get the number of bytes in the input buffer (m bytes);
   char discarded[m];
-  m = Read(fd, discarded, m);
+  m = Read(fd, discarded, m); // reads all bytes in the buffer
 
-  Write(fd, CPR(), sizeof(CPR()));
+  Write(fd, CPR(), sizeof(CPR())); // write CPR to terminal
   char buf[20];
-  int n = Read(fd, buf, 19);
+  int n = Read(fd, buf, 19); // read
   buf[n] = '\0';
 
-  ts.c_lflag |= ICANON;
-  tcsetattr(fd, TCSADRAIN, &ts);
-  for (int i = 0; i < m; i++)
-    ioctl(fd, TIOCSTI, discarded + i);
+  ts.c_lflag |= ICANON; // set canon flag
+  tcsetattr(fd, TCSADRAIN, &ts); // set ts with canon to fd; TCSADRAIN – immediate change
+  for (int i = 0; i < m; i++) // for each byte in buffer
+    ioctl(fd, TIOCSTI, discarded + i); // TIOCSTI – insert byte in the input queue 
 
-  tcsetattr(fd, TCSADRAIN, &ots);
-  sscanf(buf, "\033[%d;%dR", x, y);
+  tcsetattr(fd, TCSADRAIN, &ots); // restore prevous terminal attributes
+  sscanf(buf, "\033[%d;%dR", x, y); // read `x` and `y` from buffer; discard CLR
 }
 ```
 
@@ -194,11 +212,11 @@ Znaczenie flag umieszczanych w polu `c_iflag` struktury `termios`:
 
 *Uruchamiamy w powłoce potok (ang. pipeline) «`ps -ef | grep zsh | wc -l > cnt`». Każde z poleceń używa wyłącznie standardowego wejścia i wyjścia. Dzięki dup2(2) i pipe(2) bez modyfikacji kodu źródłowego powyższych programów możemy połączyć je w potok i przekierować wyjście do pliku «cnt». Powłoka umieszcza wszystkie trzy procesy w nowej grupie procesów rozłącznej z grupą powłoki. Kiedy potok zakończy swe działanie, do powłoki zostanie przekazany kod wyjścia ostatniego polecenia w potoku. Uzasadnij kolejność tworzenia procesów potoku posługując się obrazem 9.10 z rozdziału „Shell Execution of Programs” (APUE). Następnie ustal, który z procesów powinien wołać setpgrp(2), creat(2), dup2(2), pipe(2), close(2) lub waitpid(2) i uzasadnij swój wybór.*
 ![Processes in the pipeline](processes-in-the-pipeline.png)
-Chcemy mieć taśmę produkcyjną jak w fabryce, więc uruchamiamy wszystkie polecenia (tak jak na obrazku) od końca, żeby żadne polecenie nie zapychało pipeline'u (pliku) za sobą. Praca w taśmie produkcyjnej kończy się, gdy ostatnie ogniwo przestanie otrzymywać rzeczy od poprzednika. Tak samo jest i tutaj.
+Chcemy mieć taśmę produkcyjną jak w fabryce, więc chcemy mieć przygotowane wszystkie polecenia (tak jak na obrazku) od końca, żeby żadne polecenie nie zapychało pipeline'u (pliku) za sobą. Praca w taśmie produkcyjnej kończy się, gdy ostatnie ogniwo przestanie otrzymywać rzeczy od poprzednika. Tak samo jest i tutaj. Tylko, że procesy po `fork` będą wykonywane równolegle.
 Który proces powinien wywołać:
 
-* `setpgrp` – subshell – podpowłoka
-* `creat`
+* `setpgrp` – subshell – podpowłoka (pierwsza)
+* `creat` – ostatni shell
   > creat -- create a new file
   Wywołanie creat powinien wykonać proces
 * `dup2` – a
@@ -218,8 +236,7 @@ DESCRIPTION
      calls all move a single pointer into the file, and append mode, non-blocking I/O and asynchronous I/O options are shared between the references.  If a separate pointer into the file is desired, a dif-
      ferent object reference to the file must be obtained by issuing an additional open(2) call.  The close-on-exec flag on the new file descriptor is unset.
 
-     In dup2(), the value of the new descriptor fildes2 is specified.  If fildes and fildes2 are equal, then dup2() just returns fildes2; no other changes are made to the existing descriptor.  Otherwise, if
-     descriptor fildes2 is already in use, it is first deallocated as if a close(2) call had been done first.
+     In dup2(), the value of the new descriptor fildes2 is specified.  If fildes and fildes2 are equal, then dup2() just returns fildes2; no other changes are made to the existing descriptor.  Otherwise, if descriptor fildes2 is already in use, it is first deallocated as if a close(2) call had been done first.
 * `pipe` – a
 * `close` – a
 * `waitpid` – skoro wiemy, że wszystkie procesu pipeline'u są w osobnej grupie, i to na tę grupę czeka powłoka, `waitpid` powinnien wykonać proces powłoki uruchamiający polecenie z pipelinem.
