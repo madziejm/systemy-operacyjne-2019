@@ -91,9 +91,9 @@ a
 Jak stworzyć pętlę? Symlink może wskazywać na symlink.
 
 ``` bash
- OSX : ~/test $ ln -s aaa bbb
- OSX : ~/test $ ln -s bbb aaa
- OSX : ~/test $ ls -al
+OSX : ~/test $ ln -s aaa bbb
+OSX : ~/test $ ln -s bbb aaa
+OSX : ~/test $ ls -al
 total 0
 drwxr-xr-x   4 madziej  staff   128B Nov 11 16:39 ./
 drwx------@ 41 madziej  staff   1.3K Nov 11 16:37 ../
@@ -106,13 +106,36 @@ Symlink może też wskazywać na katalog. Totalny kociokwik.
 Jądro nie wykrywa pętli, jedynie przekroczenie maksymalnego poziomu symlinków.
 > [ELOOP] Too many symbolic links are encountered in translating the pathname. This is taken to be indicative of a looping symbolic link.
 
-Liczba dowiązań do katalogu – liczba wszystkich wpisów katalogu łącznie z `.` oraz `..`, przynajmniej w Darwinie. Dlaczego nie jest to liczba podkatalogów + 2?  
-Liczbę dowiązań odczytasz używając `stat [-x]`, albo w drugiej kolumnie `ls -l`.
+Liczba dowiązań do katalogu – liczba wszystkich wpisów katalogu łącznie z `.` oraz `..` w macOS, a w cywilizowanych uniksach `#subdirectories + 2`, z uwagą, że `ext` nie zlicza dowiązań katalogowi, jeśli liczba przekroczy 65K.
+Liczbę dowiązań odczytasz używając `stat` z opcją `[-x]` (BSD), lub w drugiej kolumnie `ls -l`.
+
+``` bash
+Deb  ~/test  ls -al                       ✔  user@d3b14n
+total 8
+drwxr-xr-x  2 user user 4096 Nov 12 11:50 .
+drwxr-xr-x 25 user user 4096 Nov 12 11:50 ..
+-rw-r--r--  1 user user    0 Nov 12 11:15 nothing
+-rw-r--r--  1 user user    0 Nov 12 11:15 thing
+```
+
+```bash
+OSX  ~/test  ls -al                       ✔  madziej@MacBook-Air-Matej
+total 0
+drwxr-xr-x   4 madziej  staff   128B Nov 12 11:50 ./
+drwx------@ 39 madziej  staff   1.2K Nov 12 11:34 ../
+-rw-r--r--   1 madziej  staff     0B Nov 12 11:34 nothing
+-rw-r--r--   1 madziej  staff     0B Nov 12 11:34 thing
+```
+
+Zinwestygujmy trochę nieoczekiwane zachowanie Darwina. W [Apple File System Reference](https://developer.apple.com/support/downloads/Apple-File-System-Reference.pdf) widzimy, że struktura `j_inode_val_t` przechowuje liczbę wpisów katalogu `nchildren` i liczbę twardych dowiązań `nlink` w unii. [Implementacja `stat`](https://opensource.apple.com/source/file_cmds/file_cmds-272.250.1/stat/stat.c.auto.html) tego nie uwzględnia.
 
 ## Zadanie 4 (P)
 
-*Przeczytaj krytykę interfejsu plików przedstawioną w podrozdziale [ioctl and fcntl Are an Embarrassment](http://www.catb.org/~esr/writings/taoup/html/ch20s03.html#id3016155). Do czego służy wywołanie systemowe ioctl(2)? Zauważ, że stosowane jest głównie do plików urządzeń znakowych lub blokowych. Na podstawie pliku ioccom.h wyjaśnij znaczenie drugiego i trzeciego parametru wywołania ioctl(2). Używając [przeglądarki kodu jądra NetBSD](https://grok.dragonflybsd.org/xref/netbsd) znajdź definicję identyfikatorów «DIOCEJECT», «KIOCTYPE» i «SIOCGIFCONF», a następnie krótko opisz co robią te polecenia.
+*Przeczytaj krytykę interfejsu plików przedstawioną w podrozdziale [ioctl and fcntl Are an Embarrassment](http://www.catb.org/~esr/writings/taoup/html/ch20s03.html#id3016155). Do czego służy wywołanie systemowe ioctl(2)? Zauważ, że stosowane jest głównie do plików urządzeń znakowych lub blokowych. Na podstawie pliku ioccom.h wyjaśnij znaczenie drugiego i trzeciego parametru wywołania ioctl(2). Używając [przeglądarki kodu jądra NetBSD](https://grok.dragonflybsd.org/xref/netbsd) znajdź definicję identyfikatorów «DIOCEJECT», «KIOCTYPE» i «SIOCGIFCONF», a następnie krótko opisz co robią te polecenia.  
 Komentarz: Prowadzący przedmiot zgadza się z autorem krytyki. Czy i Ty widzisz brzydotę tego interfejsu?*
+
+**Tak.**  
+`ioctl` jest w Uniksie nie od wczoraj, podzbiór jego funkcji był w POSIX(?). To duży monolit, co widać poniżej lub w kolejnym zadaniu, a Unix nie lubi nawet małych monolitów.
 
 ``` c
 #include <sys/ioctl.h>
@@ -135,15 +158,16 @@ ioctl(int fildes, unsigned long request, ...);
 */
 ```
 
-`ioctl`, choć będący częścią POSIX, to odrażający (dotykać w rękawiczkach (sic!)) monolit. Widać to poniżej lub w kolejnym zadaniu.
-
 * pile of macros
 * poorly documented
 * portability issues
 * because of file is a stream of bytes, there is no other way to change device state
 
-* `DIOCEJECT` – change `DIOCEJECT` `ioctl` to unlock (eject?) the media if no other partition are open before eject
-* `KIOCTYPE` – get keyboard type
+* `DIOCEJECT`
+  * change `DIOCEJECT` `ioctl` to unlock the media if no other partition are open before eject
+  * tells a device to eject removable media
+  * eject the media cartridge from a removable device.
+* `KIOCTYPE` – get keyboard type (`int`)
 * `SIOCGIFCONF` – zwraca strukturę `ifconf`
   > The local IP address of an interface can be obtained via the SIOCGIFCONF
 
@@ -203,7 +227,7 @@ Znaczenie flag umieszczanych w polu `c_iflag` struktury `termios`:
   w polskim manualu
   > włącza odbiór z wejścia
 
-  W (https://ftp.gnu.org/old-gnu/Manuals/glibc-2.2.3/html_chapter/libc_17.html)[Low-Level Terminal Interface] The GNU C Library dowiadujemy się o CREAD  
+  W [Low-Level Terminal Interface](https://ftp.gnu.org/old-gnu/Manuals/glibc-2.2.3/html_chapter/libc_17.html) The GNU C Library dowiadujemy się o `CREAD`  
   > If this bit is set, input can be read from the terminal. Otherwise, input is discarded when it arrives.
 
   Niestety, jej zmiana, niezgodnie z oczekiwaniami, nie sprawia, że nie da się wpisać tekstu do terminala, lub urządzenia reprezentującego terminal. Z [Internetów](https://lore.kernel.org/linux-usb/20191007110633.GB614644@kroah.com/) dowiadujemy się, że są urządzenia ignorujące tę flagę.
@@ -220,36 +244,33 @@ Który proces powinien wywołać:
   > creat -- create a new file
   Wywołanie creat powinien wykonać proces
 * `dup2` – a
-  >SYNOPSIS  
+  > SYNOPSIS  
      #include <unistd.h>  
      int
      dup(int fildes);
      int
-     dup2(int fildes, int fildes2);
-
-DESCRIPTION
+     dup2(int fildes, int fildes2);  
+    DESCRIPTION  
      dup() duplicates an existing object descriptor and returns its value to the calling process (fildes2 = dup(fildes)).  The argument fildes is a small non-negative integer index in the per-process
      descriptor table.  The value must be less than the size of the table, which is returned by getdtablesize(2).  The new descriptor returned by the call is the lowest numbered descriptor currently not in
-     use by the process.
-
-     The object referenced by the descriptor does not distinguish between fildes and fildes2 in any way.  Thus if fildes2 and fildes are duplicate references to an open file, read(2), write(2) and lseek(2)
+     use by the process.  
+     The object referenced by the descriptor does not distinguish between fildes and fildes2 in any way. Thus if fildes2 and fildes are duplicate references to an open file, read(2), write(2) and lseek(2)
      calls all move a single pointer into the file, and append mode, non-blocking I/O and asynchronous I/O options are shared between the references.  If a separate pointer into the file is desired, a dif-
-     ferent object reference to the file must be obtained by issuing an additional open(2) call.  The close-on-exec flag on the new file descriptor is unset.
-
+     ferent object reference to the file must be obtained by issuing an additional open(2) call.  The close-on-exec flag on the new file descriptor is unset.  
      In dup2(), the value of the new descriptor fildes2 is specified.  If fildes and fildes2 are equal, then dup2() just returns fildes2; no other changes are made to the existing descriptor.  Otherwise, if descriptor fildes2 is already in use, it is first deallocated as if a close(2) call had been done first.
 * `pipe` – a
 * `close` – a
 * `waitpid` – skoro wiemy, że wszystkie procesu pipeline'u są w osobnej grupie, i to na tę grupę czeka powłoka, `waitpid` powinnien wykonać proces powłoki uruchamiający polecenie z pipelinem.
 
-Zauważmy, że nie modyfikujemy aplikacji składających się na pipeline. Stąd, żadna z nich nie musi wywołać żadnego z powyższych wywołań systemowych.
+To trzeba rozrysować na tablicy, poza tym są różne możliwe sposoby. Zauważmy, że nie modyfikujemy aplikacji składających się na pipeline. Stąd, żadna z nich nie musi wywołać żadnego z powyższych wywołań systemowych.
 
 ## Zadanie 7 (P)
 
 *(Pomysłodawcą zadania jest Tomasz Wierzbicki.)
-Program «primes» używa Sita Eratostenesa5 do obliczania liczb pierwszych z przedziału od 2 do 10000. Proces główny tworzy dwóch potomków wykonujących procedurę «generator» i «filter_chain», spiętych rurą «gen_pipe». Pierwszy podproces wpisuje do rury kolejne liczby z zadanego przedziału. Drugi podproces tworzy łańcuch procesów filtrów, z których każdy jest spięty rurą ze swoim poprzednikiem. Procesy w łańcuchu powstają w wyniku obliczania kolejnych liczb pierwszych. Każdy nowy filtr najpierw wczytuje liczbę pierwszą p od poprzednika, po czym drukuje ją, a następnie kopiuje kolejne liczby z poprzednika do następnika za wyjątkiem liczb podzielnych przez p.
+Program «primes» używa Sita Eratostenesa do obliczania liczb pierwszych z przedziału od 2 do 10000. Proces główny tworzy dwóch potomków wykonujących procedurę «generator» i «filter_chain», spiętych rurą «gen_pipe». Pierwszy podproces wpisuje do rury kolejne liczby z zadanego przedziału. Drugi podproces tworzy łańcuch procesów filtrów, z których każdy jest spięty rurą ze swoim poprzednikiem. Procesy w łańcuchu powstają w wyniku obliczania kolejnych liczb pierwszych. Każdy nowy filtr najpierw wczytuje liczbę pierwszą p od poprzednika, po czym drukuje ją, a następnie kopiuje kolejne liczby z poprzednika do następnika za wyjątkiem liczb podzielnych przez p.
 Należy prawidłowo pochować dzieci i dbać o zamykanie nieużywanych końców rur. Program musi poprawnie działać dla argumentu 10000 – w tym przypadku powinno zostać utworzonych 1229 + 2 podprocesów.*
 
-(Prawie) zrobione.
+Zrobione.
 
 ## Zadanie 8 (P)
 
@@ -258,4 +279,4 @@ W wyniku wykonania procedury «coro_yield» współprogram przekazuje niezerowa
 Uzupełnij procedurę «coro_add» tak, by po wznowieniu kontekstu przy pomocy «Longjmp» wykonała procedurę «fn», po czym zakończyła wykonanie współprogramu. Zaprogramuj procedurę «coro_switch» tak, by wybierała następny współprogram do uruchomienia i przełączała na niego kontekst. Jeśli współprogram przekazał wartość parametru «EOF», to należy go usunąć z listy aktywnych współprogramów.
 Program używa listy dwukierunkowej «TAILQ» opisanej w queue(3). Zmienna «runqueue» przechowuje listę aktywnych współprogramów, «running» bieżąco wykonywany współprogram, a «dispatcher» kontekst programu, do którego należy wrócić, po zakończeniu wykonywania ostatniego aktywnego współprogramu.*
 
-// TODO
+OK

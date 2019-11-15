@@ -46,13 +46,30 @@ static void coro_destroy(coro_t *co) {
  */
 static noreturn void coro_switch(int v) {
   /* TODO: Something is missing here! */
+  coro_t *next = TAILQ_NEXT(running, co_link); // parameters
+  if(next == NULL)
+  {
+    next = TAILQ_FIRST(&runqueue);
+  }
   if(v == EOF)
   {
     // remove from fibers list (runqueue)
+    TAILQ_REMOVE(&runqueue, running, co_link);
+    running = next;
+
+    if(TAILQ_EMPTY(&runqueue))
+    {
+      Longjmp(dispatcher, 1);
+    }
+    Longjmp(running->co_ctx, EOF); // v == EOF
   }
   else
   {
-    // insert the yielding fiber to the queue
+    running = next;
+
+    Longjmp(running->co_ctx, v);
+
+    // insert the yielding fiber to the queue? – no needed, queue can be traversed
   }
   
   // dequeue next fiber
@@ -76,11 +93,21 @@ static void coro_add(coro_t *co, void (*fn)(int)) {
   /* TODO: Something is missing here! */
   if(v == 0)
   {
-    
+    // void
   }
   else
   {
     fn(v);
+    coro_t *next = TAILQ_NEXT(running, co_link);
+    if(next == NULL)
+    {
+      Longjmp(dispatcher, 1);
+    } else
+    {
+      running = next;
+    }
+    Longjmp(running->co_ctx, EOF);
+
   }
 
   co->co_ctx->rsp = co->co_stack + CORO_STKSIZE;
