@@ -27,9 +27,12 @@ uid=1000(cahir) gid=1000(cahir) groups=1000(cahir),20(dialout),24(cdrom),25(flop
 
 *Uzupełnij  procedurę  «`getid`»  tak  by  zwracała  identyfikator  użytkownika `getuid(2)`,  identyfikator  grupy `getgid(2)` oraz tablicę identyfikatorów i liczbę grup dodatkowych `getgroups(2)`. Nie możesz z góry założyć liczby  grup,  do  których  należy  użytkownik.  Dlatego  należy  stopniowo  zwiększać  rozmiar  tablicy  «`gids`» przy pomocy `realloc(3)`, aż pomieści rezultat wywołania «`getgroups`». Należy również uzupełnić ciało procedur «`uidname`» i «`gidname`» korzystając odpowiednio z `getpwuid(3)` i `getgrgid(3)`.*
 
+Chyba miało być napisane «otworzony».  
+Zrobione
+
 ## Zadanie 4 (P)
 
-*Program «`listdir`» drukuje zawartość katalogu w formacie podobnym do wyjścia polecenia «`ls -l`». Poniżej można znaleźć przykładowy wydruk, na którym widnieją odpowiednio: plik zwykły,dowiązanie symboliczne, urządzenie znakowe, plik wykonywalny z bitem set-uid, jeden katalog z ustawionym bitem set-gid i drugi z bitem sticky.*
+*Program «`listdir`» drukuje zawartość katalogu w formacie podobnym do wyjścia polecenia «`ls -l`». Poniżej można znaleźć przykładowy wydruk, na którym widnieją odpowiednio: plik zwykły, dowiązanie symboliczne, urządzenie znakowe, plik wykonywalny z bitem set-uid, jeden katalog z ustawionym bitem set-gid i drugi z bitem sticky.*
 
 ``` console
 -rw-r--r--   1  cahir  cahir   2964  Fri Nov 15 14:36:59 2019 listdir.c
