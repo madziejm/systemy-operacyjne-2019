@@ -2,5 +2,6 @@
 *.a
 *.o
 *.out
+*.pdf
 .vscode
 .DS_Store
