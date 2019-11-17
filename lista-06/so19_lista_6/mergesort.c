@@ -61,15 +61,58 @@ static void Sort(int parent_fd) {
 
   sockpair_t left = MakeSocketPair();
   /* TODO: Spawn left child. */
+  pid_t left_child_pid = fork();
+  if(left_child_pid == 0) // child
+  {
+    Close(left.parent_fd);
+    Sort(left.child_fd);
+    exit(0);
+  }
+  else // parent
+  {
+    Close(left.child_fd);
+  }
+  
 
   sockpair_t right = MakeSocketPair();
   /* TODO: Spawn right child. */
+  pid_t right_child_pid = fork();
+  if(right_child_pid == 0) // child
+  {
+    Close(right.parent_fd);
+    Sort(right.child_fd);
+    exit(0);
+  }
+  else // parent
+  {
+    Close(right.child_fd);
+  }
+  
 
   /* TODO: Send elements to children and merge returned values afterwards. */
+  // for(size_t elem = 0; elem < nelem; elem++)
+  // {
+  //   if(elem <= nelem / 2)
+  //   {
+  //     WriteNum(left.parent_fd, ReadNum(parent_fd));
+  //   }
+  //   else
+  //   {
+  //     WriteNum(right.parent_fd, ReadNum(parent_fd));
+  //   }
+  // }
+  SendElem(parent_fd, left.parent_fd, nelem / 2);
+  SendElem(parent_fd, right.parent_fd, nelem - nelem / 2);
+
+  Merge(left.parent_fd, right.parent_fd, parent_fd);
+
+  Close(left.parent_fd);
+  Close(right.parent_fd);
 
   /* Wait for both children. */
   Wait(NULL);
   Wait(NULL);
+  Close(parent_fd);
 }
 
 static int GetNumber(void) {

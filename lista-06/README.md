@@ -28,7 +28,7 @@ uid=1000(cahir) gid=1000(cahir) groups=1000(cahir),20(dialout),24(cdrom),25(flop
 *Uzupełnij  procedurę  «`getid`»  tak  by  zwracała  identyfikator  użytkownika `getuid(2)`,  identyfikator  grupy `getgid(2)` oraz tablicę identyfikatorów i liczbę grup dodatkowych `getgroups(2)`. Nie możesz z góry założyć liczby  grup,  do  których  należy  użytkownik.  Dlatego  należy  stopniowo  zwiększać  rozmiar  tablicy  «`gids`» przy pomocy `realloc(3)`, aż pomieści rezultat wywołania «`getgroups`». Należy również uzupełnić ciało procedur «`uidname`» i «`gidname`» korzystając odpowiednio z `getpwuid(3)` i `getgrgid(3)`.*
 
 Chyba miało być napisane «otworzony».  
-Zrobione
+Zrobione.
 
 ## Zadanie 4 (P)
 
@@ -51,10 +51,13 @@ drwxrwxrwt  23   root   root  12288  Fri Nov 15 16:01:16 2019  tmp
 
 *Implementacja iterowania zawartości katalogu będzie wymagała zapoznania się ze strukturą «`linux_dirent`» opisaną  w  podręczniku `getdents(2)`.  Wywołanie  systemowe  «`getdents`»  nie  jest  eksportowane  przez bibliotekę standardową, zatem należało je wywołać pośrednio – zobacz plik «`libcsapp/Getdents.c`».*
 
-Jak wyciągnąć typ pliku z pola `stat.st_mode` `struct stat` jest napisane w manualu `man inode`. Więcej informacji w `man 2 stat`.
+Jak wyciągnąć typ pliku z pola `stat.st_mode` `struct stat` jest napisane w manualu `man inode`. Więcej informacji w `man 2 stat`.  
+Zrobione.
 
 ## Zadanie 5 (2pkt, P)
 
 *(Pomysłodawcą zadania jest Tomasz Wierzbicki.)  
-Program  «`mergesort`»  odczytuje  ze  standardowego  wejście  liczbę  naturalną n,  po  czym  czyta n liczb całkowitych. Program realizuje algorytm sortowania przez scalanie. Proces główny zajmuje się wczytywaniem danych  wejściowych  i  drukowaniem  posortowanego  ciągu.  Żeby  posortować  liczby,  program  uruchamia podproces,  który  wykonuje  procedurę  «`Sort`».  Rozmawia  z  nim  przy  pomocy  gniazda  domeny  uniksowej `unix(7)`,  które  tworzy  z  użyciem `socketpair(2)`,  czyli lokalnej dwukierunkowej metody  komunikacji międzyprocesowej. Jeśli proces sortujący otrzyma od rodzica pojedynczą liczbę, to natychmiast odsyła ją swojemu  rodzicowi  i  kończy  działanie.  Jeśli  dostanie  więcej  liczb,  to  startuje  odpowiednio  lewe  i  prawe dziecko, po czym za pomocą procedury «`SendElem`» przesyła im liczby do posortowania. Następnie wywołuje procedurę «`Merge`», która odbiera od potomków posortowane ciągi, scala je i wysyła do procesu nadrzędnego. Twoim zadaniem jest uzupełnienie procedury «`Sort`» tak by wystartowała procesy potomne i uruchomiłaprocedury «`SendElem`» i «`Merge`». Należy odpowiednio połączyć procesy z użyciem gniazd oraz zamknąć niepotrzebne gniazda w poszczególnych procesach. Posługując się rysunkiem wyjaśnij strukturę programu. Kiedytworzysz podprocesy i gniazda? Kiedy zamykasz niepotrzebne gniazda? Jak wygląda przepływ danych? Skrypt «`gen-nums.py`» przyjmuje w linii poleceńn, czyli liczbę elementów do wygenerowania. Po uruchomieniu drukuje n na standardowe wyjście, po czym drukuje n losowych liczb całkowitych. Produkowane dane są w odpowiednim formacie do wprowadzenia do programu «`mergesort`».  
+Program  «`mergesort`»  odczytuje  ze  standardowego  wejście  liczbę  naturalną n,  po  czym  czyta n liczb całkowitych. Program realizuje algorytm sortowania przez scalanie. Proces główny zajmuje się wczytywaniem danych  wejściowych  i  drukowaniem  posortowanego  ciągu.  Żeby  posortować  liczby,  program  uruchamia podproces,  który  wykonuje  procedurę  «`Sort`».  Rozmawia  z  nim  przy  pomocy  gniazda  domeny  uniksowej `unix(7)`,  które  tworzy  z  użyciem `socketpair(2)`,  czyli lokalnej dwukierunkowej metody  komunikacji międzyprocesowej. Jeśli proces sortujący otrzyma od rodzica pojedynczą liczbę, to natychmiast odsyła ją swojemu  rodzicowi  i  kończy  działanie.  Jeśli  dostanie  więcej  liczb,  to  startuje  odpowiednio  lewe  i  prawe dziecko, po czym za pomocą procedury «`SendElem`» przesyła im liczby do posortowania. Następnie wywołuje procedurę «`Merge`», która odbiera od potomków posortowane ciągi, scala je i wysyła do procesu nadrzędnego. Twoim zadaniem jest uzupełnienie procedury «`Sort`» tak by wystartowała procesy potomne i uruchomiłaprocedury «`SendElem`» i «`Merge`». Należy odpowiednio połączyć procesy z użyciem gniazd oraz zamknąć niepotrzebne gniazda w poszczególnych procesach. Posługując się rysunkiem wyjaśnij strukturę programu. Kiedy tworzysz podprocesy i gniazda? Kiedy zamykasz niepotrzebne gniazda? Jak wygląda przepływ danych? Skrypt «`gen-nums.py`» przyjmuje w linii poleceńn, czyli liczbę elementów do wygenerowania. Po uruchomieniu drukuje `n` na standardowe wyjście, po czym drukuje `n` losowych liczb całkowitych. Produkowane dane są w odpowiednim formacie do wprowadzenia do programu «`mergesort`».  
 UWAGA! Wszystkie procesy muszą działać w stałej pamięci!*
+
+Zrobione.
