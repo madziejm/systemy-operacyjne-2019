@@ -6,20 +6,23 @@ Należy przygotować się do zajęć czytając następujące rozdziały książe
 
 ## Zadanie 1 (P)
 
-*Przeczytaj krytykę kluczowej idei systemu Unix, tj. [A Unix File Is Just a Big Bag of Bytes](http://www.catb.org/~esr/writings/taoup/html/ch20s03.html#id3015538). Na podstawie [Resource Fork](https://en.wikipedia.org/wiki/Resource_fork) wyjaśnij czym były dodatkowe zasoby pliku w historycznych systemach MacOS. Jaką  postać  mają rozszerzone atrybuty pliku `xattr(7)`?  Gdzie  są  one  składowane  w  systemie  plików?Poleceniem `wget(1)` z opcją «`--xattr`» pobierz z Internetu plik, po czym wyświetl jego rozszerzone atrybuty przy pomocy polecenia `getfattr(1)`. Następnie policz sumę md5 wybranego pliku i przypisz ją do atrybutu «`user.md5sum`» poleceniem `setfattr(1)`, po czym sprawdź czy operacja się powiodła. Ściągnij ze strony przedmiotu archiwum «`so19_lista_6.tar.gz`», następnie rozpakuj i zapoznaj się z dostarczonymi plikami.  
+*Przeczytaj krytykę kluczowej idei systemu Unix, tj. [A Unix File Is Just a Big Bag of Bytes](http://www.catb.org/~esr/writings/taoup/html/ch20s03.html#id3015538). Na podstawie [Resource Fork](https://en.wikipedia.org/wiki/Resource_fork) wyjaśnij czym były dodatkowe zasoby pliku w historycznych systemach MacOS. Jaką  postać  mają rozszerzone atrybuty pliku `xattr(7)`?  Gdzie  są  one  składowane  w  systemie  plików? Poleceniem `wget(1)` z opcją «`--xattr`» pobierz z Internetu plik, po czym wyświetl jego rozszerzone atrybuty przy pomocy polecenia `getfattr(1)`. Następnie policz sumę md5 wybranego pliku i przypisz ją do atrybutu «`user.md5sum`» poleceniem `setfattr(1)`, po czym sprawdź czy operacja się powiodła.*
+
+*Ściągnij ze strony przedmiotu archiwum «`so19_lista_6.tar.gz`», następnie rozpakuj i zapoznaj się z dostarczonymi plikami.  
 UWAGA! Można modyfikować tylko te fragmenty programów, które zostały oznaczone w komentarzu napisem «`TODO`».*
 
 ## Zadanie 2 (2pkt, P)
 
 *Program  «`writeperf`»  służy  do  testowania  wydajności  operacji  zapisu  do  pliku. Nasz [microbenchmark](https://en.wikipedia.org/wiki/Benchmark_(computing)) wczytuje z linii poleceń opcje i argumenty opisane dalej. Na standardowe wyjście drukuje* t *trójkątów (opcja «`-t`») prostokątnych o boku złożonym z `l` znaków gwiazdki «``*``» (opcja «``-l``»). Jeśli standardowe wyjście zostało przekierowane do pliku oraz została podana opcja «`-s`», to przed zakończeniem programu bufory pliku zostaną zsynchronizowane z dyskiem wywołaniem `fsync(2)`. Program realizuje pięć wariantów zapisu do pliku:•Każdą linię trójkąta zapisuje osobno wywołaniem `write(2)` (argument «`write`»).•Używa strumienia biblioteki stdio bez buforowania (argument «`fwrite`»), z buforowaniem liniami (argument «`fwrite-line`») i buforowaniem pełnym (argument «`fwrite-full`»).•Wykorzystuje wywołanie systemowe `writev(2)` do zapisania do «`IOV_MAX`» linii na raz. Twoim  zadaniem  jest  odpowiednie  skonfigurowanie  bufora  strumienia  «`stdout`»  z  użyciem  procedury `setvbuf(3)` oraz zaimplementowanie metody zapisu z użyciem «`writev`». Przy pomocy skryptu powłoki «`writeperf.sh`» porównaj wydajność wymienionych wcześniej metod zapisu. Uzasadnij przedstawione wyniki. Miej na uwadze liczbę wywołań systemowych (należy to zbadać posługującsię narzędziem `strace(1)` z opcją «`-c`») oraz liczbę kopii danych wykonanych celem przesłania zawartościlinii do buforów dysku.*
-1http://www.catb.org/~esr/writings/taoup/html/ch20s03.html#id30155382https://en.wikipedia.org/wiki/Resource_fork3https://en.wikipedia.org/wiki/Microbenchmark
 
 ## Zadanie 3 (P)
 
 *Program «`id`» drukuje na standardowe wyjście tożsamość, z którą został utworzony, np.:*
 
 ``` console
-$ id2uid=1000(cahir) gid=1000(cahir) groups=1000(cahir),20(dialout),24(cdrom),25(floppy),327(sudo),29(audio),30(dip),44(video),46(plugdev),108(netdev),123(vboxusers),999(docker)
+$ id
+uid=1000(cahir) gid=1000(cahir) groups=1000(cahir),20(dialout),24(cdrom),25(floppy),
+27(sudo),29(audio),30(dip),44(video),46(plugdev),108(netdev),123(vboxusers),999(docker)
 ```
 
 *Uzupełnij  procedurę  «`getid`»  tak  by  zwracała  identyfikator  użytkownika `getuid(2)`,  identyfikator  grupy `getgid(2)` oraz tablicę identyfikatorów i liczbę grup dodatkowych `getgroups(2)`. Nie możesz z góry założyć liczby  grup,  do  których  należy  użytkownik.  Dlatego  należy  stopniowo  zwiększać  rozmiar  tablicy  «`gids`» przy pomocy `realloc(3)`, aż pomieści rezultat wywołania «`getgroups`». Należy również uzupełnić ciało procedur «`uidname`» i «`gidname`» korzystając odpowiednio z `getpwuid(3)` i `getgrgid(3)`.*
@@ -44,6 +47,8 @@ drwxrwxrwt  23   root   root  12288  Fri Nov 15 16:01:16 2019  tmp
 * *`readlinkat(2)` to przeczytania ścieżki zawartej w dowiązaniu symbolicznym.*
 
 *Implementacja iterowania zawartości katalogu będzie wymagała zapoznania się ze strukturą «`linux_dirent`» opisaną  w  podręczniku `getdents(2)`.  Wywołanie  systemowe  «`getdents`»  nie  jest  eksportowane  przez bibliotekę standardową, zatem należało je wywołać pośrednio – zobacz plik «`libcsapp/Getdents.c`».*
+
+Jak wyciągnąć typ pliku z pola `stat.st_mode` `struct stat` jest napisane w manualu `man inode`. Więcej informacji w `man 2 stat`.
 
 ## Zadanie 5 (2pkt, P)
 

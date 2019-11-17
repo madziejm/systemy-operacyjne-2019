@@ -33,6 +33,9 @@ static void print_mode(mode_t m) {
   char ox = (m & S_IXOTH) ? 'x' : '-';
 
   /* TODO: Fix code to report set-uid/set-gid/sticky bit as 'ls' does. */
+  ux = (m & S_ISUID) ? 's' : ux;
+  gx = (m & S_ISGID) ? 's' : gx;
+  ox = (m & S_ISVTX) ? 't' : ox;
 
   printf("%c%c%c%c%c%c%c%c%c%c", t, ur, uw, ux, gr, gw, gx, or, ow, ox);
 }
@@ -54,9 +57,10 @@ static void print_gid(gid_t gid) {
 }
 
 static void file_info(int dirfd, const char *name) {
-  struct stat sb[1];
+  struct stat sb[1]; // why, why are you doing this?
 
   /* TODO: Read file metadata. */
+  fstatat(dirfd, name, sb, AT_SYMLINK_NOFOLLOW);
 
   print_mode(sb->st_mode);
   printf("%4ld", sb->st_nlink);
@@ -64,6 +68,14 @@ static void file_info(int dirfd, const char *name) {
   print_gid(sb->st_gid);
 
   /* TODO: For devices: print major/minor pair; for other files: size. */
+  if((sb->st_mode & S_IFMT) == S_IFBLK || (sb->st_mode & S_IFMT) == S_IFCHR){
+    dev_t dev_id = sb->st_rdev;
+    printf("%4d %5d ", major(dev_id), minor(dev_id));
+  }
+  else{
+    off_t file_size = sb->st_size;
+    printf("%10ld ", file_size);
+  }
 
   char *now = ctime(&sb->st_mtime);
   now[strlen(now) - 1] = '\0';
@@ -73,6 +85,9 @@ static void file_info(int dirfd, const char *name) {
 
   if (S_ISLNK(sb->st_mode)) {
   /* TODO: Read where symlink points to and print '-> destination' string. */
+    char dest_filepath[256];
+    readlinkat(dirfd, name, dest_filepath, sizeof dest_filepath);
+    printf(" -> %s", dest_filepath);
   }
 
   putchar('\n');
@@ -87,8 +102,18 @@ int main(int argc, char *argv[]) {
   int n;
 
   while ((n = Getdents(dirfd, (void *)buf, DIRBUFSZ))) {
-    struct linux_dirent *d;
     /* TODO: Iterate over directory entries and call file_info on them. */
+    // These  are  not  the interfaces you are interested in.  Look at readdir(3) for the
+    //   POSIX-conforming C library interface.  This page documents the bare kernel  system
+    //   call interfaces.
+    for(size_t byte_position = 0; byte_position < n; )
+    {
+      struct linux_dirent *dir = (struct linux_dirent*) (buf + byte_position);
+      char* dir_entry_filename = dir->d_name;
+      file_info(dirfd, dir_entry_filename);
+
+      byte_position += dir->d_reclen;
+    }
   }
 
   Close(dirfd);
