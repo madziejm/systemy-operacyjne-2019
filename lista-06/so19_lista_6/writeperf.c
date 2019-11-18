@@ -54,6 +54,8 @@ int main(int argc, char *argv[]) {
     }
 
     /* TODO: Attach new buffer to stdout stream. */
+    buf = malloc(size);
+    setvbuf(stdout, buf, mode, size);
 
     for (int j = 0; j < times; j++)
       for (int k = 0; k < length; k++)
@@ -64,9 +66,26 @@ int main(int argc, char *argv[]) {
   }
 
   if (strcmp(choice, "writev") == 0) {
-    int n = sysconf(_SC_IOV_MAX);
+    const int n = sysconf(_SC_IOV_MAX);
     struct iovec iov[n];
+
     /* TODO: Write file by filling in iov array and issuing writev. */
+    int iovec_written_elements = 0;
+    for (int j = 0; j < times; j++)
+    {
+      for (int k = 0; k < length; k++)
+      {
+        iov[iovec_written_elements].iov_base = line + k;
+        iov[iovec_written_elements].iov_len = length + 1 - k;
+        iovec_written_elements++;
+        if (iovec_written_elements % n == 0)
+        {
+          writev(STDOUT_FILENO, iov, n);
+          iovec_written_elements = 0;
+        }
+      }
+    }
+    writev(STDOUT_FILENO, iov, iovec_written_elements);
   }
 
   free(line);

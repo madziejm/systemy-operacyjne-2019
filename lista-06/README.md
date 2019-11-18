@@ -13,7 +13,163 @@ UWAGA! Można modyfikować tylko te fragmenty programów, które zostały oznacz
 
 ## Zadanie 2 (2pkt, P)
 
-*Program  «`writeperf`»  służy  do  testowania  wydajności  operacji  zapisu  do  pliku. Nasz [microbenchmark](https://en.wikipedia.org/wiki/Benchmark_(computing)) wczytuje z linii poleceń opcje i argumenty opisane dalej. Na standardowe wyjście drukuje* t *trójkątów (opcja «`-t`») prostokątnych o boku złożonym z `l` znaków gwiazdki «``*``» (opcja «``-l``»). Jeśli standardowe wyjście zostało przekierowane do pliku oraz została podana opcja «`-s`», to przed zakończeniem programu bufory pliku zostaną zsynchronizowane z dyskiem wywołaniem `fsync(2)`. Program realizuje pięć wariantów zapisu do pliku:•Każdą linię trójkąta zapisuje osobno wywołaniem `write(2)` (argument «`write`»).•Używa strumienia biblioteki stdio bez buforowania (argument «`fwrite`»), z buforowaniem liniami (argument «`fwrite-line`») i buforowaniem pełnym (argument «`fwrite-full`»).•Wykorzystuje wywołanie systemowe `writev(2)` do zapisania do «`IOV_MAX`» linii na raz. Twoim  zadaniem  jest  odpowiednie  skonfigurowanie  bufora  strumienia  «`stdout`»  z  użyciem  procedury `setvbuf(3)` oraz zaimplementowanie metody zapisu z użyciem «`writev`». Przy pomocy skryptu powłoki «`writeperf.sh`» porównaj wydajność wymienionych wcześniej metod zapisu. Uzasadnij przedstawione wyniki. Miej na uwadze liczbę wywołań systemowych (należy to zbadać posługującsię narzędziem `strace(1)` z opcją «`-c`») oraz liczbę kopii danych wykonanych celem przesłania zawartościlinii do buforów dysku.*
+*Program  «`writeperf`»  służy  do  testowania  wydajności  operacji  zapisu  do  pliku. Nasz [microbenchmark](https://en.wikipedia.org/wiki/Benchmark_(computing)) wczytuje z linii poleceń opcje i argumenty opisane dalej. Na standardowe wyjście drukuje `t` trójkątów (opcja «`-t`») prostokątnych o boku złożonym z `l` znaków gwiazdki «``*``» (opcja «``-l``»). Jeśli standardowe wyjście zostało przekierowane do pliku oraz została podana opcja «`-s`», to przed zakończeniem programu bufory pliku zostaną zsynchronizowane z dyskiem wywołaniem `fsync(2)`. Program realizuje pięć wariantów zapisu do pliku:*
+
+* *Każdą linię trójkąta zapisuje osobno wywołaniem `write(2)` (argument «`write`»).*
+* *Używa strumienia biblioteki stdio bez buforowania (argument «`fwrite`»), z buforowaniem liniami (argument «`fwrite-line`») i buforowaniem pełnym (argument «`fwrite-full`»).*
+* *Wykorzystuje wywołanie systemowe `writev(2)` do zapisania do «`IOV_MAX`» linii na raz.*
+
+*Twoim  zadaniem  jest  odpowiednie  skonfigurowanie  bufora  strumienia  «`stdout`»  z  użyciem  procedury `setvbuf(3)` oraz zaimplementowanie metody zapisu z użyciem «`writev`».  
+Przy pomocy skryptu powłoki «`writeperf.sh`» porównaj wydajność wymienionych wcześniej metod zapisu. Uzasadnij przedstawione wyniki. Miej na uwadze liczbę wywołań systemowych (należy to zbadać posługującsię narzędziem `strace(1)` z opcją «`-c`») oraz liczbę kopii danych wykonanych celem przesłania zawartości linii do buforów dysku.*
+
+Zrobione.
+
+``` console
+user@d3b14n :~$ ./writeperf.sh
+Method: write
+
+real    0m50.545s
+user    0m0.017s
+sys     0m48.777s
+594c417685170dd3eb60286c0f634dc9  test
+
+Method: fwrite
+
+real    0m51.148s
+user    0m0.020s
+sys     0m49.321s
+594c417685170dd3eb60286c0f634dc9  test
+
+Method: fwrite-line
+
+real    0m52.020s
+user    0m0.037s
+sys     0m49.805s
+594c417685170dd3eb60286c0f634dc9  test
+
+Method: fwrite-buff
+
+real    0m51.006s
+user    0m0.020s
+sys     0m49.222s
+594c417685170dd3eb60286c0f634dc9  test
+
+Method: writev
+
+real    1m10.355s
+user    0m0.000s
+sys     0m45.819s
+594c417685170dd3eb60286c0f634dc9  test
+```
+
+``` console
+user@d3b14n :~$ strace -c ./writeperf -t 1000 -l 1000 -s write 1>/dev/null
+% time     seconds  usecs/call     calls    errors syscall
+------ ----------- ----------- --------- --------- ----------------
+100.00    7.124676           7   1000000           write
+  0.00    0.000007           7         1         1 ioctl
+  0.00    0.000006           6         1         1 fsync
+  0.00    0.000000           0         1           read
+  0.00    0.000000           0         2           close
+  0.00    0.000000           0         2           fstat
+  0.00    0.000000           0         7           mmap
+  0.00    0.000000           0         4           mprotect
+  0.00    0.000000           0         1           munmap
+  0.00    0.000000           0         3           brk
+  0.00    0.000000           0         1         1 access
+  0.00    0.000000           0         1           execve
+  0.00    0.000000           0         1           arch_prctl
+  0.00    0.000000           0         2           openat
+------ ----------- ----------- --------- --------- ----------------
+100.00    7.124689               1000027         3 total
+```
+
+``` console
+user@d3b14n :~$ strace -c ./writeperf -t 1000 -l 1000 -s fwrite 1>/dev/null
+% time     seconds  usecs/call     calls    errors syscall
+------ ----------- ----------- --------- --------- ----------------
+ 99.99    5.520324           5   1000000           write
+  0.01    0.000294          42         7           mmap
+  0.00    0.000048          12         4           mprotect
+  0.00    0.000029          14         2           openat
+  0.00    0.000024          24         1           munmap
+  0.00    0.000015           5         3           brk
+  0.00    0.000012           6         2           fstat
+  0.00    0.000012          12         1         1 access
+  0.00    0.000010           5         2           close
+  0.00    0.000008           8         1           read
+  0.00    0.000007           7         1         1 ioctl
+  0.00    0.000007           7         1           execve
+  0.00    0.000005           5         1         1 fsync
+  0.00    0.000005           5         1           arch_prctl
+------ ----------- ----------- --------- --------- ----------------
+100.00    5.520800               1000027         3 total
+```
+
+``` console
+user@d3b14n :~$ strace -c ./writeperf -t 1000 -l 1000 -s fwrite-line 1>/dev/null
+% time     seconds  usecs/call     calls    errors syscall
+------ ----------- ----------- --------- --------- ----------------
+100.00    5.264031           5   1000000           write
+  0.00    0.000008           8         1         1 ioctl
+  0.00    0.000006           6         1         1 fsync
+  0.00    0.000000           0         1           read
+  0.00    0.000000           0         2           close
+  0.00    0.000000           0         2           fstat
+  0.00    0.000000           0         7           mmap
+  0.00    0.000000           0         4           mprotect
+  0.00    0.000000           0         1           munmap
+  0.00    0.000000           0         3           brk
+  0.00    0.000000           0         1         1 access
+  0.00    0.000000           0         1           execve
+  0.00    0.000000           0         1           arch_prctl
+  0.00    0.000000           0         2           openat
+------ ----------- ----------- --------- --------- ----------------
+100.00    5.264045               1000027         3 total
+```
+
+``` console
+user@d3b14n :~$ strace -c ./writeperf -t 1000 -l 1000 -s fwrite-full 1>/dev/null
+% time     seconds  usecs/call     calls    errors syscall
+------ ----------- ----------- --------- --------- ----------------
+ 99.96    0.605848           4    122437           write
+  0.01    0.000083          11         7           mmap
+  0.01    0.000048          12         4           mprotect
+  0.01    0.000031          15         2           openat
+  0.00    0.000024          24         1           munmap
+  0.00    0.000015           5         3           brk
+  0.00    0.000014           7         2           fstat
+  0.00    0.000014          14         1         1 access
+  0.00    0.000009           4         2           close
+  0.00    0.000008           8         1           read
+  0.00    0.000007           7         1           execve
+  0.00    0.000004           4         1           arch_prctl
+  0.00    0.000003           3         1         1 ioctl
+  0.00    0.000003           3         1         1 fsync
+------ ----------- ----------- --------- --------- ----------------
+100.00    0.606111                122464         3 total
+```
+
+``` console
+user@d3b14n :~$ strace -c ./writeperf -t 1000 -l 1000 -s writev 1>/dev/null
+% time     seconds  usecs/call     calls    errors syscall
+------ ----------- ----------- --------- --------- ----------------
+ 99.53    0.021609          22       977           writev
+  0.14    0.000031           7         4           mprotect
+  0.11    0.000024          24         1           munmap
+  0.06    0.000013           1         7           mmap
+  0.06    0.000012           4         3           brk
+  0.03    0.000006           6         1         1 ioctl
+  0.02    0.000005           2         2           close
+  0.02    0.000005           5         1         1 fsync
+  0.02    0.000005           5         1           arch_prctl
+  0.00    0.000000           0         1           read
+  0.00    0.000000           0         2           fstat
+  0.00    0.000000           0         1         1 access
+  0.00    0.000000           0         1           execve
+  0.00    0.000000           0         2           openat
+------ ----------- ----------- --------- --------- -----
+```
 
 ## Zadanie 3 (P)
 
