@@ -8,6 +8,25 @@ Należy przygotować się do zajęć czytając następujące rozdziały książe
 
 *Przeczytaj krytykę kluczowej idei systemu Unix, tj. [A Unix File Is Just a Big Bag of Bytes](http://www.catb.org/~esr/writings/taoup/html/ch20s03.html#id3015538). Na podstawie [Resource Fork](https://en.wikipedia.org/wiki/Resource_fork) wyjaśnij czym były dodatkowe zasoby pliku w historycznych systemach MacOS. Jaką  postać  mają rozszerzone atrybuty pliku `xattr(7)`?  Gdzie  są  one  składowane  w  systemie  plików? Poleceniem `wget(1)` z opcją «`--xattr`» pobierz z Internetu plik, po czym wyświetl jego rozszerzone atrybuty przy pomocy polecenia `getfattr(1)`. Następnie policz sumę md5 wybranego pliku i przypisz ją do atrybutu «`user.md5sum`» poleceniem `setfattr(1)`, po czym sprawdź czy operacja się powiodła.*
 
+*Resource fork* to część pliku zawierająca jego zasoby, których struktura może być przeczytana przez sam system operacyjny.
+
+``` console
+user@d3b14n :~$ wget --xattr http://ftp.pl.debian.org/debian/pool/main/h/hello/hello_2.9-2+deb8u1_amd64.deb
+[wget output]
+user@d3b14n :~$ getfattr hello_2.9-2+deb8u1_amd64.deb
+# file: hello_2.9-2+deb8u1_amd64.deb
+user.xdg.origin.url
+user@d3b14n :~$ getfattr -n user.xdg.origin.url hello_2.9-2+deb8u1_amd64.deb
+# file: hello_2.9-2+deb8u1_amd64.deb
+user.xdg.origin.url="http://ftp.pl.debian.org/debian/pool/main/h/hello/hello_2.9-2+deb8u1_amd64.deb"
+user@d3b14n :~$ md5sum hello_2.9-2+deb8u1_amd64.deb
+64a92a50c745f79aa17de37f9e7a97ff  hello_2.9-2+deb8u1_amd64.deb
+user@d3b14n :~$ setfattr -n user.md5sum -v 64a92a50c745f79aa17de37f9e7a97ff hello_2.9-2+deb8u1_amd64.deb
+user@d3b14n :~$ getfattr -n user.md5sum hello_2.9-2+deb8u1_amd64.deb
+# file: hello_2.9-2+deb8u1_amd64.deb
+user.md5sum="64a92a50c745f79aa17de37f9e7a97ff"
+```
+
 *Ściągnij ze strony przedmiotu archiwum «`so19_lista_6.tar.gz`», następnie rozpakuj i zapoznaj się z dostarczonymi plikami.  
 UWAGA! Można modyfikować tylko te fragmenty programów, które zostały oznaczone w komentarzu napisem «`TODO`».*
 
