@@ -13,5 +13,5 @@ runtest() {
 runtest write
 runtest fwrite
 runtest fwrite-line
-runtest fwrite-buff
+runtest fwrite-full
 runtest writev
