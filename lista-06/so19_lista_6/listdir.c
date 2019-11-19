@@ -33,9 +33,9 @@ static void print_mode(mode_t m) {
   char ox = (m & S_IXOTH) ? 'x' : '-';
 
   /* TODO: Fix code to report set-uid/set-gid/sticky bit as 'ls' does. */
-  ux = (m & S_ISUID) ? 's' : ux;
-  gx = (m & S_ISGID) ? 's' : gx;
-  ox = (m & S_ISVTX) ? 't' : ox;
+  ux = (m & S_ISUID) ? ('S' : 's') : ux;
+  gx = (m & S_ISGID) ? ('S' : 's') : gx;
+  ox = (m & S_ISVTX) ? ('T' : 't') : ox;
 
   printf("%c%c%c%c%c%c%c%c%c%c", t, ur, uw, ux, gr, gw, gx, or, ow, ox);
 }
