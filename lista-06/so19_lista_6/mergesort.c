@@ -64,6 +64,7 @@ static void Sort(int parent_fd) {
   pid_t left_child_pid = fork();
   if(left_child_pid == 0) // child
   {
+    Close(parent_fd);
     Close(left.parent_fd);
     Sort(left.child_fd);
     exit(0);
@@ -79,6 +80,7 @@ static void Sort(int parent_fd) {
   pid_t right_child_pid = fork();
   if(right_child_pid == 0) // child
   {
+    Close(parent_fd);
     Close(right.parent_fd);
     Sort(right.child_fd);
     exit(0);
@@ -90,6 +92,7 @@ static void Sort(int parent_fd) {
   
 
   /* TODO: Send elements to children and merge returned values afterwards. */
+  // commented code implemented by SendElem
   // for(size_t elem = 0; elem < nelem; elem++)
   // {
   //   if(elem <= nelem / 2)
