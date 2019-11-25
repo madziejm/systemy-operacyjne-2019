@@ -116,7 +116,7 @@ static void safe_vprintf(int fd, const char *fmt, va_list ap) {
 #undef PCHAR
 
 print:
-  write(fd, line, linelen);
+  (void)write(fd, line, linelen);
 }
 
 void safe_printf(const char *fmt, ...) {

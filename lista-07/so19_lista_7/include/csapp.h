@@ -4,11 +4,11 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #ifdef LINUX
+#include <sys/sysmacros.h>
 #include <sys/prctl.h>
 #endif
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/sysmacros.h>
 #include <sys/time.h>
 #include <sys/uio.h>
 #include <sys/wait.h>
@@ -30,6 +30,22 @@
 #include <time.h>
 #include <unistd.h>
 
+#define min(a, b)                                                              \
+  ({                                                                           \
+    typeof(a) _a = (a);                                                        \
+    typeof(b) _b = (b);                                                        \
+    _a < _b ? _a : _b;                                                         \
+  })
+
+#define max(a, b)                                                              \
+  ({                                                                           \
+    typeof(a) _a = (a);                                                        \
+    typeof(b) _b = (b);                                                        \
+    _a > _b ? _a : _b;                                                         \
+  })
+
+#define powerof2(x) (((x) & ((x) - 1)) == 0)
+
 #define __unused __attribute__((unused))
 
 extern char **environ;
@@ -43,6 +59,11 @@ noreturn void app_error(const char *fmt, ...)
 /* Signal safe I/O functions */
 void safe_printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 void safe_error(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+
+/* Decent hashing function. */
+#define HASHINIT 5381
+
+uint32_t jenkins_hash(const void *key, size_t length, uint32_t initval);
 
 /* Process control wrappers */
 pid_t Fork(void);
@@ -68,6 +89,7 @@ size_t Write(int fd, const void *buf, size_t count);
 size_t Writev(int fd, const struct iovec *iov, int iovcnt);
 off_t Lseek(int fildes, off_t offset, int whence);
 void Close(int fd);
+void Ftruncate(int fd, off_t length);
 int Dup2(int oldfd, int newfd);
 void Pipe(int fds[2]);
 void Socketpair(int domain, int type, int protocol, int sv[2]);
@@ -82,6 +104,10 @@ struct linux_dirent {
 
 int Getdents(int fd, struct linux_dirent *dirp, unsigned count);
 
+/* Directory operations */
+void Rename(const char *oldpath, const char *newpath);
+void Unlink(const char *pathname);
+
 /* File metadata access wrapper */
 void Fstat(int fd, struct stat *statbuf);
 void Fstatat(int dirfd, const char *pathname, struct stat *statbuf, int flags);
@@ -92,6 +118,8 @@ size_t Readlinkat(int dirfd, const char *pathname, char *buf, size_t bufsiz);
 void *Mmap(void *addr, size_t length, int prot, int flags, int fd,
            off_t offset);
 void Mprotect(void *addr, size_t len, int prot);
+void Munmap(void *addr, size_t len);
+void Madvise(void *addr, size_t length, int advice);
 
 /* Setjmp & longjmp implementation without sigprocmask */
 typedef struct {
