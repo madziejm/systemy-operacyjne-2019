@@ -32,17 +32,18 @@ Wskazówka: Obejrzyj pierwsze 25 minut prezentacji [Capsicum: Practical capabil
 *Jedną z metod zmniejszania podatności aplikacji na ataki jest zawężanie widoczności systemu plików (ang. filesystem sandboxing). Przeczytaj podręcznik do wywołania systemowego `unveil(2)`. Jak użyć tego wywołania do zmniejszenia ryzyka wycieku informacji z programu komunikującego się z Inter- netem, np. przeglądarki internetowej? Czym różni się ten mechanizm od `chroot(2)`?
 **Wskazówka:** Obejrzyj prezentację [Unveil in OpenBSD](https://www.youtube.com/watch?v=gvmGfpMgny4) z BSDCan 2019.*
 
-
 *Ściągnij ze strony przedmiotu archiwum «`so19_lista_7.tar.gz`», następnie rozpakuj i zapoznaj się z dostarczonymi plikami. UWAGA! Można modyfikować tylko te fragmenty programów, które zostały oznaczone w komentarzu napisem «`TODO`».*
 
 ## Zadanie 7 (P)
 
-*Program «`forksort`» wypełnia tablicę 226 elementów typu «`long`» losowymi wartościami. Następnie na tej tablicy uruchamia hybrydowy algorytm sortowania, po czym sprawdza jeden z warunków poprawności wyniku sortowania. Zastosowano algorytm sortowania szybkiego (ang. quick sort), który przełącza się na sortowanie przez wstawianie dla tablic o rozmiarze mniejszym niż «`INSERTSORT_MAX`».  
+*Program «`forksort`» wypełnia tablicę 2^26 elementów typu «`long`» losowymi wartościami. Następnie na tej tablicy uruchamia hybrydowy algorytm sortowania, po czym sprawdza jeden z warunków poprawności wyniku sortowania. Zastosowano algorytm sortowania szybkiego (ang. quick sort), który przełącza się na sortowanie przez wstawianie dla tablic o rozmiarze mniejszym niż «`INSERTSORT_MAX`».  
 Twoim zadaniem jest taka modyfikacja programu «`forksort`», żeby oddelegować zadanie sortowania fragmentów tablicy do podprocesów. Przy czym należy tworzyć podprocesy tylko, jeśli rozmiar nieposortowanej części tablicy jest nie mniejszy niż «`FORKSORT_MIN`». Zauważ, że tablica elementów musi być współdzielona między procesy – użyj wywołania `mmap(2)` z odpowiednimi argumentami.  
 Porównaj zużycie procesora (ang. CPU time) i czas przebywania w systemie (ang. turnaround time) przed i po wprowadzeniu delegacji zadań do podprocesów. Na podstawie [prawa Amdahla](https://pl.wikipedia.org/wiki/Prawo_Amdahla) wyjaśnij zaobserwowane różnice. Których elementów naszego algorytmu nie da się wykonywać równolegle?*
 
 ## Zadanie 8 (P)
 
-*Unfortunately OP has not delivered.*
-
-/:
+*(Pomysłodawcą zadania jest Piotr Polesiuk.)  
+Nasz serwis internetowy stał się celem ataku hakerów, którzy wykradli dane milionów użytkowników. Zostaliśmy zmuszeni do zresetowania haseł naszych klientów. Nie możemy jednak dopuścić do tego, by użytkownicy wybrali nowe hasła z listy, którą posiadają hakerzy. Listę pierwszych 10 milionów skompromitowanych haseł można pobrać poleceniem «`make download`».
+Program «`hashdb`» został napisany w celu utworzenia bazy danych haseł i jej szybkiego przeszukiwania. Pierwszym argumentem przyjmowanym z linii poleceń jest nazwa pliku bazy danych haseł. Program wczytuje ze standardowego wejścia hasła oddzielone znakami końca linii i działa w dwóch trybach: dodawania haseł do bazy (opcja «`-i`») i wyszukiwania (opcja «`-q`»). Żeby utworzyć bazę danych z pliku zawierającego hasła należy wywołać polecenie «`./hashdb -i badpw.db < passwords.txt`». Program można uruchomić w trybie interaktywnego odpytywania bazy danych: «`./hashdb -q badpw.db`».
+Implementacja wykorzystuje tablicę mieszającą przechowywaną w pamięci, która odwzorowuje plik bazy danych haseł. Używamy adresowania liniowego i [funkcji mieszającej Jenkinsa](https://en.wikipedia.org/wiki/Jenkins_hash_function) «`lookup3.c`». Hasło może mieć maksymalnie «`ENT_LENGTH`» znaków. Baza danych ma miejsce na 2^k wpisów. Jeśli w trakcie wkładania hasła do bazy wykryjemy konflikt kluczy, to wywołujemy procedurę «`db_rehash`». Tworzy ona na nową bazę o rozmiarze 2^(k+1) wpisów, kopiuje klucze ze starej bazy do nowej i atomowo zastępuje stary plik bazy danych.git
+Twoim zadaniem jest uzupełnić kod procedur «`db_open`», «`db_rehash`» i «`doit`» zgodnie z poleceniami zawartymi w komentarzach. Przeczytaj podręcznik systemowy do wywołania systemowego `madvise(2)` i wyjaśnij słuchaczom co ono robi. Należy użyć odpowiednich funkcji z biblioteki «`libcsapp`» opakowujących wywołania: `unlink(2)`, `mmap(2)`, `munmap(2)`, `madvise(2)`, `ftruncate(2)`, `rename(2)` i `fstat(2)`.*
