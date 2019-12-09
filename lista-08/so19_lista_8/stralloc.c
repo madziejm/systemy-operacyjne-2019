@@ -1,6 +1,8 @@
 #include "csapp.h"
 #include "arena.h"
 
+// OTHER INCLUDES AT THE END OF THIS FILE
+
 #define MAX_LENGTH 126
 #define MAX_BLKSZ (MAX_LENGTH + 1)
 
@@ -26,6 +28,7 @@ static void init_chunk(void *ar) {
 #define BLOCK_HEADER(data) (data[cur_offset])
 #define END_OF_CHUNK(data) (BLOCK_HEADER(data) == 0)
 #define BLOCK_USED(data) (BLOCK_HEADER(data) > 0)
+#define BLOCK_FREE(data) (BLOCK_HEADER(data) < 0)
 #define BLOCK_SIZE(data) (abs(BLOCK_HEADER(data)))
 
 #define NEXT_BLOCK_HEADER(data) (data[cur_offset + BLOCK_SIZE(data)])
@@ -35,24 +38,48 @@ static void init_chunk(void *ar) {
 #define MOVE_NEXT(data) cur_offset += BLOCK_SIZE(data)
 #define CURRENT_PTR(data) (data + cur_offset + 1)
 
+// #define BLOCK int8_t
+// TODO consider using this macro
+
 static void *alloc_block(int8_t *data, uint8_t len) {
   void *result = NULL;
 
+  // int8_t *block_ptr = data;
+  // TODO consider introducing this variable
+  // data identifier could be more descriptive
   while (!END_OF_CHUNK(data)) {
     if (BLOCK_USED(data)) {
       /* TODO: occupied block */
+      // BLOCK IS FREE IN THE FOLLOWING CASES
+      MOVE_NEXT(data);
     } else if (BLOCK_SIZE(data) == len) {
       /* TODO: free block of exact size */
+      // return this block
+      BLOCK_HEADER(data) = len;
+      result = CURRENT_PTR(data);
+      assert(BLOCK_USED(data));
       break;
     } else if (BLOCK_SIZE(data) > len) {
       /* TODO: free block is too large */
+      // allocate and return new block
+      // int8_t allocated_block_header = -len;
+      size_t old_size = BLOCK_SIZE(data);
+      BLOCK_HEADER(data) = len;
+      result = CURRENT_PTR(data);
+      // create new block with remaining free space
+      NEXT_BLOCK_HEADER(data) = old_size - len; // -1?
       break;
     } else if (!NEXT_BLOCK_FREE(data)) {
       /* TODO: next block is occupied or does not exists */
-    } else if (NEXT_BLOCK_SIZE(data) <= len - BLOCK_SIZE(data)) {
+      // current block is shorter than requested length and cannot be expanded
+      MOVE_NEXT(data);
+    } else if (NEXT_BLOCK_SIZE(data) <= len - BLOCK_SIZE(data)) { // naprawdę nie można było przerzucić ujemnej liczby na drugą stronę?
       /* TODO: merge two free blocks, but do not allocate */
-    } else {
+        int8_t extended_block_header = BLOCK_SIZE(data) + NEXT_BLOCK_SIZE(data);
+        BLOCK_HEADER(data) = extended_block_header;
+    } else { // the current and next blocks are free and >= than length
       /* TODO: merge two free blocks and allocate with split */
+      // not necessary, I suppose
       break;
     }
   }
@@ -98,6 +125,7 @@ static void strfree(char *str) {
   if (str == NULL)
     return;
   int8_t *sstr = (int8_t *)str;
+  // what is the purpouse of introducing this `sstr` local variable?
 #if DEBUG_LEVEL > 0
   assert(sstr[-1] > 0);
   arena_t *ar = find_ptr_arena(&arenas, str);
@@ -112,6 +140,10 @@ static void strfree(char *str) {
 #endif
 #endif
   /* TODO: mark block as free */
+  int8_t *block_header = (sstr - 1);
+  assert(*block_header > 0); // assert the block is used
+  *block_header = - *block_header;
+  assert(*block_header < 0); // assert the block is free
 }
 
 static void strmemcheck(void) {

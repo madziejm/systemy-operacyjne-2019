@@ -49,6 +49,20 @@ noreturn void external_command(char **argv) {
 
   if (!index(argv[0], '/') && path) {
     /* TODO: For all paths in PATH construct an absolute path and execve it. */
+    const char* const path_end = path + strlen(path); // get rid of this and rethink the conditions carefully
+    size_t path_delimiter_position = -1;
+    while(path < path_end && (path_delimiter_position = strcspn(path, ":")) > 0)
+    {
+      char *executable_path = strndup(path, path_delimiter_position);
+      strapp(&executable_path, "/");
+      strapp(&executable_path, argv[0]);
+      (void)execve(executable_path, argv, environ);
+      free(executable_path);
+      if(path_delimiter_position > 0) // recheck the condition(s)
+      {
+        path += path_delimiter_position + 1;
+      }
+    }
   } else {
     (void)execve(argv[0], argv, environ);
   }

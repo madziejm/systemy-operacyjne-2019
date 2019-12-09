@@ -3,7 +3,7 @@ CFLAGS = -Og -Wall -Werror -Wstrict-prototypes
 AS = as -g
 ASFLAGS = 
 CPPFLAGS = -Iinclude
-LDLIBS = -Llibcsapp -lcsapp
+LDLIBS = -Llibcsapp -lcsapp -ledit
 
 # Recognize operating system
 ifeq ($(shell uname -s), Darwin)

@@ -13,6 +13,17 @@ static void sigchld_handler(int sig) {
   pid_t pid;
   int status;
   /* TODO: Bury all children that finished saving their status in jobs. */
+  while ((pid = waitpid((pid_t)(-1), &status, WNOHANG)) > 0)
+  {
+    for(size_t i = 0; i < njobmax; i++)
+    {
+      if(jobs[i].pid == pid)
+      {
+        jobs[i].status = status;
+        break;
+      }
+    }
+  }
   errno = old_errno;
 }
 

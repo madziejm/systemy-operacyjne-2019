@@ -11,12 +11,23 @@ static int command(char **argv, bool bg) {
 
   sigset_t sigchld_mask, prev_mask;
   /* TODO: Block SIGCHLD temporarily. */
+  // komentarz prowadzącego:
+  // race condition
+  // dziecko zdąży zdechnąć tak szybko, że
+  // nie wstawimy do tablicy
+  sigemptyset(&sigchld_mask);
+  sigaddset(&sigchld_mask, SIGCHLD);
+  Sigprocmask(SIG_BLOCK, &sigchld_mask, &prev_mask);
 
   pid_t pid = Fork();
   if (pid == 0) {
     /* TODO: Restore signal mask and put new process into separate group. */
+    Sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+    // setpgid(0, 0); // essentially this is what we want to achieve, but it leads to an output issue
+    // setpgid(0, 0) is equivalent to setpgid(getpid(), getpid())
     external_command(argv);
   }
+  Sigprocmask(SIG_UNBLOCK, &sigchld_mask, &prev_mask);
 
   jobid_t jid = addjob(pid, bg);
 
@@ -24,10 +35,20 @@ static int command(char **argv, bool bg) {
     while (true) {
       exitcode = jobdone(jid);
       /* TODO: If job is not done then wait for SIGCHLD, otherwise break. */
+      if(exitcode == -1)
+      {
+        // sigsuspend(&prev_mask); // either this
+        pause(); // or this way
+      }
+      else
+      {
+        break;
+      }
     }
   }
 
   /* TODO: Restore signal mask. */
+  Sigprocmask(SIG_SETMASK, &prev_mask, NULL);
 
   return exitcode;
 }
