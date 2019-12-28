@@ -8,7 +8,7 @@ int main(void) {
   memset(x, 0xf0, N * sizeof(int));
   free(x);
   int *y = malloc(M * sizeof(int));
-  memset(y, 0x0f, N * sizeof(int));
-  free(x);
+  memset(y, 0x0f, M * sizeof(int));
+  free(y);
   return 0;
 }
