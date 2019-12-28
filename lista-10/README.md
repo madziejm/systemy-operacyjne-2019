@@ -8,6 +8,17 @@ Należy przygotować się do zajęć czytając następujące rozdziały 
 
 *Na podstawie §4.1 i §8.1 książki „Unix Network Programming: The Sockets Networking API” przedstaw diagram komunikacji klient-serwer za pomocą protokołu TCP i UDP z użyciem, odpowiednio, interfejsu gniazd strumieniowych i datagramowych. Która ze stron komunikacji używa portów ulotnych (ang. ephemeral)? Czemu w przypadku protokołu UDP do komunikacji należy używać wywołań systemowych `recvfrom(2)` i `sendto(2)` (o ile wcześniej nie wykonano `connect(2)`) zamiast `read(2)` i `write(2)`?*
 
+![TCP scheme](tcp.png)
+
+mamy uzgadnianie połączenia
+
+![UDP scheme](udp.png)
+
+za każdym razem trzeba podawać adres
+
+* należy używać innych wywołań systemowych ?
+* pod portem ulotnym jest klient
+
 *Ściągnij ze strony przedmiotu archiwum «`so19_lista_10.tar.gz`», a następnie zapoznaj się z jego zawartością. Na drugiej godzinie zajęć studenci będą mieli szansę zaprezentować wybrane fragmenty własnej implementacji projektu Shell. Za taką aktywność prowadzący może przedzielić do 3 punktów bonusowych.*
 
 ## Zadanie 2 (P)
@@ -15,10 +26,14 @@ Należy przygotować się do zajęć czytając następujące rozdziały 
 *Zmodyfikuj program [«`hostinfo.c`»](so19_lista_10/hostinfo.c) w taki sposób, aby wyświetlał zarówno adresy IPv4, jak i IPv6 dla danej nazwy serwera. Dodatkowo należy przekształcić nazwę usługi przekazanej jako opcjonalny trzeci parametr programu na numer portu. Poniżej przykład:*
 
 ``` console
-# hostinfo www.google.com https 216.58.215.68:443 [2a00:1450:401b:803::2004]:443
+# hostinfo www.google.com https
+216.58.215.68:443
+[2a00:1450:401b:803::2004]:443
 ```
 
 *Co należałoby zrobić, żeby program rozpoznawał usługę o nazwie «`tftp`»?*
+
+Zrobione. Należałoby dodać wpis do `/etc/services`.
 
 ## Zadanie 3 (P)
 

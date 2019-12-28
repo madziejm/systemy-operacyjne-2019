@@ -5,8 +5,11 @@
 
 static size_t nread = 0;
 
+sigjmp_buf out_of_loop_jump_buf;
+
 static void sigint_handler(int sig) {
   /* TODO: Change control flow so that it does not return to main loop. */
+  siglongjmp(out_of_loop_jump_buf, 1);
 }
 
 static void echo(int connfd) {
@@ -32,10 +35,20 @@ int main(int argc, char **argv) {
   /* TODO: Print bytes received after SIGINT has been received. */
 
   while (1) {
+    int connfd = -1;
+    if(sigsetjmp(out_of_loop_jump_buf, 1) != 0)
+    {
+      fprintf(stderr, "number of bytes read: %ld\n", nread);
+      Close(listenfd);
+      if(connfd != -1)
+        Close(connfd);
+      break;
+    }
+    
     socklen_t clientlen = sizeof(struct sockaddr_storage);
     struct sockaddr_storage clientaddr; /* Enough space for any address */
     char client_hostname[MAXLINE], client_port[MAXLINE];
-    int connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);
+    connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);
     Getnameinfo((SA *)&clientaddr, clientlen, client_hostname, MAXLINE,
                 client_port, MAXLINE, 0);
     printf("Connected to %s:%s\n", client_hostname, client_port);
