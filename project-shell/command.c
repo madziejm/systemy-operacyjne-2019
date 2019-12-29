@@ -8,6 +8,8 @@ typedef struct {
 } command_t;
 
 static int do_quit(char **argv) {
+  msg("%s\n", __func__);
+  shutdownjobs();
   exit(EXIT_SUCCESS);
 }
 
@@ -17,6 +19,7 @@ static int do_quit(char **argv) {
  * 'cd path' - change to provided path
  */
 static int do_chdir(char **argv) {
+  msg("%s\n", __func__);
   char *path = argv[0];
   if (path == NULL)
     path = getenv("HOME");
@@ -32,6 +35,7 @@ static int do_chdir(char **argv) {
  * Displays all stopped or running jobs.
  */
 static int do_jobs(char **argv) {
+  msg("%s\n", __func__);
   watchjobs(ALL);
   return 0;
 }
@@ -42,6 +46,7 @@ static int do_jobs(char **argv) {
  * 'fg n' choose job number n
  */
 static int do_fg(char **argv) {
+  msg("%s\n", __func__);
   int j = argv[0] ? atoi(argv[0]) : -1;
 
   sigset_t mask;
@@ -58,6 +63,7 @@ static int do_fg(char **argv) {
  * 'bg n' choose job number n
  */
 static int do_bg(char **argv) {
+  msg("%s\n", __func__);
   int j = argv[0] ? atoi(argv[0]) : -1;
 
   sigset_t mask;
@@ -74,6 +80,7 @@ static int do_bg(char **argv) {
  * 'bg n' choose job number n
  */
 static int do_kill(char **argv) {
+  msg("%s\n", __func__);
   if (!argv[0])
     return -1;
   if (*argv[0] != '%')
@@ -96,6 +103,7 @@ static command_t builtins[] = {
 };
 
 int builtin_command(char **argv) {
+  msg("%s\n", __func__);
   for (command_t *cmd = builtins; cmd->name; cmd++) {
     if (strcmp(argv[0], cmd->name))
       continue;
@@ -107,10 +115,25 @@ int builtin_command(char **argv) {
 }
 
 noreturn void external_command(char **argv) {
+  msg("%s\n", __func__);
   const char *path = getenv("PATH");
 
   if (!index(argv[0], '/') && path) {
     /* TODO: For all paths in PATH construct an absolute path and execve it. */
+    const char* const path_end = path + strlen(path); // get rid of this and rethink the conditions carefully
+    size_t path_delimiter_position = -1;
+    while(path < path_end && (path_delimiter_position = strcspn(path, ":")) > 0)
+    {
+      char *executable_path = strndup(path, path_delimiter_position);
+      strapp(&executable_path, "/");
+      strapp(&executable_path, argv[0]);
+      (void)execve(executable_path, argv, environ);
+      free(executable_path);
+      if(path_delimiter_position > 0)
+      {
+        path += path_delimiter_position + 1;
+      }
+    }
   } else {
     (void)execve(argv[0], argv, environ);
   }
