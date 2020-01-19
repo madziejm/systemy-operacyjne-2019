@@ -1,7 +1,6 @@
 #include "shell.h"
 
 void strapp(char **dstp, const char *src) {
-  // msg("%s\n", __func__);
   assert(dstp != NULL);
 
   if (*dstp == NULL) {
@@ -14,7 +13,6 @@ void strapp(char **dstp, const char *src) {
 }
 
 token_t *tokenize(char *s, int *tokc_p) {
-  // msg("%s\n", __func__);
   int capacity = 10;
   int ntoks = 0;
 

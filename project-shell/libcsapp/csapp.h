@@ -7,17 +7,24 @@
 #include <sys/sysmacros.h>
 #include <sys/prctl.h>
 #endif
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/uio.h>
+#include <sys/user.h>
 #include <sys/wait.h>
+#include <arpa/inet.h>
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <grp.h>
 #include <limits.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <poll.h>
+#include <pthread.h>
 #include <pwd.h>
 #include <setjmp.h>
 #include <signal.h>
@@ -27,6 +34,7 @@
 #include <stdbool.h>
 #include <stdnoreturn.h>
 #include <string.h>
+#include <termios.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -50,11 +58,18 @@
 
 extern char **environ;
 
+/* Useful constants. */
+#define MAXLINE 4096
+
 /* Our own error-handling functions */
 noreturn void unix_error(const char *fmt, ...)
   __attribute__((format(printf, 1, 2)));
+noreturn void posix_error(int code, const char *fmt, ...)
+  __attribute__((format(printf, 2, 3)));
 noreturn void app_error(const char *fmt, ...)
   __attribute__((format(printf, 1, 2)));
+noreturn void gai_error(int code, const char *fmt, ...)
+  __attribute__((format(printf, 2, 3)));
 
 /* Signal safe I/O functions */
 void safe_printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
@@ -64,6 +79,11 @@ void safe_error(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 #define HASHINIT 5381
 
 uint32_t jenkins_hash(const void *key, size_t length, uint32_t initval);
+
+/* Memory allocation wrappers */
+void *Malloc(size_t size);
+void *Realloc(void *ptr, size_t size);
+void *Calloc(size_t nmemb, size_t size);
 
 /* Process control wrappers */
 pid_t Fork(void);
@@ -85,6 +105,10 @@ void Sigsuspend(const sigset_t *mask);
 /* Process group control wrappers */
 void Setpgid(pid_t pid, pid_t pgid);
 
+/* Stdio wrappers */
+char *Fgets(char *ptr, int n, FILE *stream);
+void Fputs(const char *ptr, FILE *stream);
+
 /* Unix I/O wrappers */
 int Open(const char *pathname, int flags, mode_t mode);
 size_t Read(int fd, void *buf, size_t count);
@@ -97,6 +121,9 @@ int Dup(int fd);
 int Dup2(int oldfd, int newfd);
 void Pipe(int fds[2]);
 void Socketpair(int domain, int type, int protocol, int sv[2]);
+int Select(int n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
+           struct timeval *timeout);
+int Poll(struct pollfd *fds, nfds_t nfds, int timeout);
 
 /* Directory access (Linux specific) */
 struct linux_dirent {
@@ -128,6 +155,8 @@ void Madvise(void *addr, size_t length, int advice);
 /* Terminal control */
 void Tcsetpgrp(int fd, pid_t pgrp);
 pid_t Tcgetpgrp(int fd);
+void Tcsetattr(int fd, int action, const struct termios *termios_p);
+void Tcgetattr(int fd, struct termios *termios_p);
 
 /* Setjmp & longjmp implementation without sigprocmask */
 typedef struct {
@@ -143,5 +172,32 @@ typedef struct {
 
 int Setjmp(Jmpbuf env);
 noreturn void Longjmp(Jmpbuf env, int val);
+
+/* Socket interface wrappers. */
+typedef struct sockaddr SA;
+int Socket(int domain, int type, int protocol);
+void Setsockopt(int s, int level, int optname, const void *optval, int optlen);
+void Bind(int sockfd, struct sockaddr *my_addr, int addrlen);
+void Listen(int s, int backlog);
+int Accept(int s, struct sockaddr *addr, socklen_t *addrlen);
+void Connect(int sockfd, struct sockaddr *serv_addr, int addrlen);
+
+/* Protocol-independent wrappers. */
+void Getaddrinfo(const char *node, const char *service,
+                 const struct addrinfo *hints, struct addrinfo **res);
+void Getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host,
+                 size_t hostlen, char *serv, size_t servlen, int flags);
+int open_clientfd(char *hostname, char *port);
+int Open_clientfd(char *hostname, char *port);
+int open_listenfd(char *port, int backlog);
+int Open_listenfd(char *port, int backlog);
+
+/* POSIX thread control wrappers. */
+
+void Pthread_create(pthread_t *tidp, pthread_attr_t *attrp,
+                    void *(*routine)(void *), void *argp);
+void Pthread_cancel(pthread_t tid);
+void Pthread_join(pthread_t tid, void **thread_return);
+void Pthread_detach(pthread_t tid);
 
 #endif /* __CSAPP_H__ */

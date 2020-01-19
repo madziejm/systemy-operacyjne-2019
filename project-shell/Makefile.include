@@ -11,7 +11,7 @@ CPPFLAGS += -DMACOS
 endif
 
 ifeq ($(shell uname -s), Linux)
-CPPFLAGS += -DLINUX -D_GNU_SOURCE 
+CPPFLAGS += -DLINUX
 endif
 
 ifeq ($(shell uname -s), FreeBSD)

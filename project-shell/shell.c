@@ -9,15 +9,22 @@ sigset_t sigchld_mask;
 static sigjmp_buf loop_env;
 
 static void sigint_handler(int sig) {
-  msg("%s\n", __func__);
   siglongjmp(loop_env, sig);
+}
+
+/* Rewrite closed file descriptors to -1,
+ * to make sure we don't attempt do close them twice. */
+static void MaybeClose(int *fdp) {
+  if (*fdp < 0)
+    return;
+  Close(*fdp);
+  *fdp = -1;
 }
 
 /* Consume all tokens related to redirection operators.
  * Put opened file descriptors into inputp & output respectively. */
 static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp) {
-  msg("%s\n", __func__);
-  // token_t mode = NULL; /* T_INPUT, T_OUTPUT or NULL */ //what was purpouse of this?
+  // token_t mode = NULL; /* T_INPUT, T_OUTPUT or NULL */ // what is the purpouse of this?
   int n = 0;           /* number of tokens after redirections are removed */
 
   n = ntokens;
@@ -26,23 +33,19 @@ static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp) {
     if(token[i] == T_INPUT)
     {
       if(n == ntokens)
-      {
         n = i;
-      }
       *inputp = Open(token[i + 1], O_RDONLY, 0);
       token[i] = T_NULL;
     }
     else if(token[i] == T_OUTPUT)
     {
       if(n == ntokens)
-      {
         n = i;
-      }
       *outputp = Open(token[i + 1], O_WRONLY | O_CREAT, 0644);
-      token[i] = T_NULL;
       token[i] = T_NULL;
     }
   }
+
   token[n] = NULL;
   return n;
 }
@@ -50,46 +53,45 @@ static int do_redir(token_t *token, int ntokens, int *inputp, int *outputp) {
 /* Execute internal command within shell's process or execute external command
  * in a subprocess. External command can be run in the background. */
 static int do_job(token_t *token, int ntokens, bool bg) {
-  msg("%s\n", __func__);
   int input = -1, output = -1;
   int exitcode = 0;
 
   ntokens = do_redir(token, ntokens, &input, &output);
 
-  if ((exitcode = builtin_command(token)) >= 0)
-    return exitcode;
+  if (!bg) {
+    if ((exitcode = builtin_command(token)) >= 0)
+      return exitcode;
+  }
 
   sigset_t mask;
   Sigprocmask(SIG_BLOCK, &sigchld_mask, &mask);
 
   /* TODO: Start a subprocess, create a job and monitor it. */
   pid_t child_pid;
-  size_t job_idx;
+  size_t job_index;
 
   child_pid = Fork();
   if(child_pid == 0)
   {
     Signal(SIGTSTP, SIG_DFL);
-    Setpgid(0, 0);
     Sigprocmask(SIG_SETMASK, &mask, NULL);
+    Setpgid(0, 0);
+    if(bg == FG)
+      set_tty_group(getpgrp());
     if(input != -1)
-    {
       Dup2(input, STDIN_FILENO);
-    }
     if(output != -1)
-    {
       Dup2(output, STDOUT_FILENO);
-    }
+    if (bg && (exitcode = builtin_command(token)) >= 0)
+      exit(exitcode);
     external_command(token);
   }
   // parent
   setpgid(child_pid, child_pid);
-    if(input != -1)
-  close(input);
-    if(output != -1)
-  close(output);
-  job_idx = addjob(child_pid, bg);
-  addproc(job_idx, child_pid, token);
+  MaybeClose(&input);
+  MaybeClose(&output);
+  job_index = addjob(child_pid, bg);
+  addproc(job_index, child_pid, token);
   if(!bg)
     monitorjob(&mask);
 
@@ -99,43 +101,45 @@ static int do_job(token_t *token, int ntokens, bool bg) {
 
 /* Start internal or external command in a subprocess that belongs to pipeline.
  * All subprocesses in pipeline must belong to the same process group. */
-
-// assume tokens end with T_NULL
 static pid_t do_stage(pid_t pgid, sigset_t *mask, int input, int output,
-                      token_t *token, int ntokens) {
-  msg("%s\n", __func__);
+                      token_t *token, int ntokens, int bg) {
   ntokens = do_redir(token, ntokens, &input, &output);
+
+  if (ntokens == 0)
+    app_error("ERROR: Command line is not well formed!");
 
   /* TODO: Start a subprocess and make sure it's moved to a process group. */
   pid_t child_pid = Fork();
   if(child_pid == 0)
   {
     Signal(SIGTSTP, SIG_DFL);
-    Setpgid(0, pgid);
     Sigprocmask(SIG_SETMASK, mask, NULL);
+    Setpgid(0, pgid);
+    if(bg == FG)
+      set_tty_group(pgid);
     if(input != -1)
       Dup2(input, STDIN_FILENO);
     if(output != -1)
       Dup2(output, STDOUT_FILENO);
-    Sigprocmask(SIG_SETMASK, mask, NULL);
-    // TODO
-    // if ((exitcode = builtin_command(token)) >= 0)
-    //   return exitcode;
+    int builtin_command_exitcode = builtin_command(token);
+    if (builtin_command_exitcode >= 0)
+      exit(builtin_command_exitcode);
     external_command(token);
   }
   setpgid(child_pid, pgid);
-    if(input != -1)
-  close(input);
-    if(output != -1)
-  close(output);
+  MaybeClose(&input);
+  MaybeClose(&output);
+  // no need to close next_input from do_pipeline in child process
+  // because of CLOEXEC; dup2 copies won't be closed on exec
 
   return child_pid;
 }
 
 static void mkpipe(int *readp, int *writep) {
-  msg("%s\n", __func__);
   int fds[2];
   Pipe(fds);
+  fcntl(fds[0], F_SETFD, FD_CLOEXEC);
+  fcntl(fds[1], F_SETFD, FD_CLOEXEC);
   *readp = fds[0];
   *writep = fds[1];
 }
@@ -143,7 +147,6 @@ static void mkpipe(int *readp, int *writep) {
 /* Pipeline execution creates a multiprocess job. Both internal and external
  * commands are executed in subprocesses. */
 static int do_pipeline(token_t *token, int ntokens, bool bg) {
-  msg("%s\n", __func__);
   pid_t pid, pgid = 0;
   int job = -1;
   int exitcode = 0;
@@ -165,13 +168,11 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
     while(token[++tokens_ommited] != T_PIPE && token[tokens_ommited] != T_NULL) {}
     if(token[tokens_ommited] == T_PIPE)
     {
-      token[tokens_ommited] = T_NULL; // execve/external_command expect NULL terminated array
+      token[tokens_ommited] = T_NULL; // execve/external_command expect NULL terminated array, which is the same as T_NULL
       if(stage_encountered == false) // first stage
       {
         stage_encountered = true;
-        pgid = do_stage(0, &mask, input, output, token, 42 ? tokens_ommited : 666);
-        // TODO close next_pipe child process
-        // fcntl(next_input, F_SETFD, FD_CLOEXEC);
+        pgid = do_stage(0, &mask, input, output, token, tokens_ommited, bg);
         job = addjob(pgid, bg);
         addproc(job, pgid, token);
       }
@@ -179,7 +180,7 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
       {
         input = next_input;
         mkpipe(&next_input, &output);
-        pid = do_stage(pgid, &mask, input, output, token, 42 ? tokens_ommited : 666);
+        pid = do_stage(pgid, &mask, input, output, token, tokens_ommited, bg);
         addproc(job, pid, token);
       }
       tokens_ommited++;
@@ -189,16 +190,14 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
     {
       input = next_input;
       output = -1;
-      pid = do_stage(pgid, &mask, input, output, token, 42 ? tokens_ommited : 666);
+      pid = do_stage(pgid, &mask, input, output, token, tokens_ommited, bg);
       addproc(job, pid, token);
       if(!bg)
         monitorjob(&mask);
       break;
     }
     else
-    {
       assert(false);
-    }
   }
 
   Sigprocmask(SIG_SETMASK, &mask, NULL);
@@ -206,7 +205,6 @@ static int do_pipeline(token_t *token, int ntokens, bool bg) {
 }
 
 static bool is_pipeline(token_t *token, int ntokens) {
-  msg("%s\n", __func__);
   for (int i = 0; i < ntokens; i++)
     if (token[i] == T_PIPE)
       return true;
@@ -214,7 +212,6 @@ static bool is_pipeline(token_t *token, int ntokens) {
 }
 
 static void eval(char *cmdline) {
-  msg("%s\n", __func__);
   bool bg = false;
   int ntokens;
   token_t *token = tokenize(cmdline, &ntokens);
@@ -236,11 +233,12 @@ static void eval(char *cmdline) {
 }
 
 int main(int argc, char *argv[]) {
-  msg("%s\n", __func__);
   rl_initialize();
 
   sigemptyset(&sigchld_mask);
   sigaddset(&sigchld_mask, SIGCHLD);
+
+  Setpgid(0, 0);
 
   initjobs();
 

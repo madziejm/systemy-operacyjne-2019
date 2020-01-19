@@ -18,4 +18,10 @@ void rio_readinitb(rio_t *rp, int fd);
 ssize_t rio_readnb(rio_t *rp, void *usrbuf, size_t n);
 ssize_t rio_readlineb(rio_t *rp, void *usrbuf, size_t maxlen);
 
+/* Wrappers that exit on failure */
+ssize_t Rio_readn(int fd, void *ptr, size_t nbytes);
+void Rio_writen(int fd, void *usrbuf, size_t n);
+ssize_t Rio_readnb(rio_t *rp, void *usrbuf, size_t n);
+ssize_t Rio_readlineb(rio_t *rp, void *usrbuf, size_t maxlen);
+
 #endif /* !_RIO_H_ */

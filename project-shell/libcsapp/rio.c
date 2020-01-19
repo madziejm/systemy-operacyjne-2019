@@ -21,6 +21,13 @@ ssize_t rio_readn(int fd, void *usrbuf, size_t n) {
   return n - nleft; /* Return >= 0 */
 }
 
+ssize_t Rio_readn(int fd, void *ptr, size_t nbytes) {
+  ssize_t n = rio_readn(fd, ptr, nbytes);
+  if (n < 0)
+    unix_error("Rio_readn error");
+  return n;
+}
+
 /* rio_writen - Robustly write n bytes (unbuffered) */
 ssize_t rio_writen(int fd, void *usrbuf, size_t n) {
   size_t nleft = n;
@@ -38,6 +45,11 @@ ssize_t rio_writen(int fd, void *usrbuf, size_t n) {
     bufp += nwritten;
   }
   return n;
+}
+
+void Rio_writen(int fd, void *usrbuf, size_t n) {
+  if (rio_writen(fd, usrbuf, n) != n)
+    unix_error("Rio_writen error");
 }
 
 /*
@@ -70,6 +82,13 @@ static ssize_t rio_read(rio_t *rp, char *usrbuf, size_t n) {
   rp->rio_bufptr += cnt;
   rp->rio_cnt -= cnt;
   return cnt;
+}
+
+ssize_t Rio_readnb(rio_t *rp, void *usrbuf, size_t n) {
+  ssize_t rc = rio_readnb(rp, usrbuf, n);
+  if (rc < 0)
+    unix_error("Rio_readnb error");
+  return rc;
 }
 
 /* rio_readinitb - Associate a descriptor with a read buffer and reset buffer */
@@ -118,4 +137,11 @@ ssize_t rio_readlineb(rio_t *rp, void *usrbuf, size_t maxlen) {
   }
   *bufp = 0;
   return n - 1;
+}
+
+ssize_t Rio_readlineb(rio_t *rp, void *usrbuf, size_t maxlen) {
+  ssize_t rc = rio_readlineb(rp, usrbuf, maxlen);
+  if (rc < 0)
+    unix_error("Rio_readlineb error");
+  return rc;
 }

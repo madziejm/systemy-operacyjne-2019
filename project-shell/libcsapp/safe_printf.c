@@ -5,7 +5,7 @@
 static char const digits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
 
 #define MAXNBUF (sizeof(intmax_t) * 8 + 1)
-#define MAXLINE 512
+#define LINELEN 512
 
 static char *print_num(char *nbuf, uintmax_t num, int base, int *len_p) {
   char *p = nbuf;
@@ -19,8 +19,8 @@ static char *print_num(char *nbuf, uintmax_t num, int base, int *len_p) {
   return p;
 }
 
-static void safe_vprintf(int fd, const char *fmt, va_list ap) {
-  char line[MAXLINE];
+static int safe_vprintf(int fd, const char *fmt, va_list ap) {
+  char line[LINELEN];
   char nbuf[MAXNBUF];
   int linelen = 0;
   int stop = 0;
@@ -116,7 +116,7 @@ static void safe_vprintf(int fd, const char *fmt, va_list ap) {
 #undef PCHAR
 
 print:
-  (void)write(fd, line, linelen);
+  return write(fd, line, linelen);
 }
 
 void safe_printf(const char *fmt, ...) {
