@@ -174,7 +174,7 @@ int jobstate(int j, int *statusp) {
   /* TODO: Handle case where job has finished. */
   if(job->state == FINISHED)
   {
-    *statusp = job->proc[0].exitcode;
+    *statusp = exitcode(job);
     deljob(job);
   }
 
@@ -240,14 +240,14 @@ void watchjobs(int which) {
       int state = jobs[j].state;
       if(state == FINISHED)
       {
-        printf("[%d] %s – finished, ", j, jobs[j].command);
+        printf("[%d] '%s' – finished, ", j, jobs[j].command);
         if(WIFEXITED(state))
         {
           printf("exited with code %d\n", WEXITSTATUS(state));
         }
         if(WIFSIGNALED(state))
         {
-          printf("killed by signal with code %d\n", WTERMSIG(state));
+          printf("signaled by signal %d\n", WTERMSIG(state));
         }
         deljob(&jobs[j]);
       }
@@ -256,14 +256,14 @@ void watchjobs(int which) {
     {
       if(jobs[j].state == RUNNING)
       {
-        printf("[%d] %s – running\n", j, jobs[j].command);
+        printf("[%d] '%s' – running\n", j, jobs[j].command);
       }
     }
     if(which == ALL || which == STOPPED)
     {
       if(jobs[j].state == STOPPED)
       {
-        printf("[%d] %s – stopped\n", j, jobs[j].command);
+        printf("[%d] '%s' – stopped\n", j, jobs[j].command);
       }
     }
   }

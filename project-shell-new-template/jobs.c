@@ -20,12 +20,63 @@ static int njobmax = 1;             /* number of slots in jobs array */
 static int tty_fd = -1;             /* controlling terminal file descriptor */
 static struct termios shell_tmodes; /* saved shell terminal modes */
 
+
 static void sigchld_handler(int sig) {
   int old_errno = errno;
   pid_t pid;
   int status;
   /* TODO: Change state (FINISHED, RUNNING, STOPPED) of processes and jobs.
    * Bury all children that finished saving their status in jobs. */
+  while((0 < (pid = waitpid(-1, &status, WNOHANG | WUNTRACED | WCONTINUED))))
+  {
+    for(size_t job_idx = 0; job_idx < njobmax; job_idx++)
+    {
+      if(jobs[job_idx].pgid == 0)
+        continue;
+      
+      int state = 0;
+      bool found_proc = false;
+      for(size_t proc_idx = 0; proc_idx < jobs[job_idx].nproc; proc_idx++)
+      {
+        found_proc = false;
+        if(jobs[job_idx].proc[proc_idx].pid != pid)
+          continue;
+        found_proc = true;
+
+        if(WIFEXITED(status))
+        {
+          jobs[job_idx].proc[proc_idx].state = FINISHED;
+          jobs[job_idx].proc[proc_idx].exitcode = status;
+        }
+        else if(WIFSIGNALED(status))
+        {
+          jobs[job_idx].proc[proc_idx].state = FINISHED;
+          jobs[job_idx].proc[proc_idx].exitcode = status;
+        }
+        else if(WIFCONTINUED(status))
+        {
+          jobs[job_idx].proc[proc_idx].state = RUNNING;
+        }
+        else if(WIFSTOPPED(status))
+        {
+          jobs[job_idx].proc[proc_idx].state = STOPPED;
+        }
+        state |= jobs[job_idx].proc[proc_idx].state;
+      }
+      if(found_proc)
+      {
+        jobs[job_idx].state = FINISHED;
+        if(state & STOPPED)
+          jobs[job_idx].state = STOPPED;
+        if(state & RUNNING)
+        {
+          jobs[job_idx].state = RUNNING;
+          if(!(state & ~RUNNING))
+            printf("[%ld] '%s' – continued\n", job_idx, jobs[job_idx].command);
+        }
+      }
+    }
+  }
   errno = old_errno;
 }
 
@@ -104,6 +155,27 @@ void addproc(int j, pid_t pid, char **argv) {
   mkcommand(&job->command, argv);
 }
 
+char* signal_name(int signal_no)
+{
+  switch(signal_no)
+  {
+    case SIGTERM:
+      return "SIGTERM";
+    case SIGQUIT:
+      return "SIGQUIT";
+    case SIGKILL:
+      return "SIGKILL";
+    case SIGHUP:
+      return "SIGHUP";
+    case SIGSEGV:
+      return "SIGSEGV";
+    case SIGBUS:
+      return "SIGBUS";
+    default:
+      return "other signal";
+  }
+}
+
 /* Returns job's state.
  * If it's finished, delete it and return exitcode through statusp. */
 int jobstate(int j, int *statusp) {
@@ -112,6 +184,11 @@ int jobstate(int j, int *statusp) {
   int state = job->state;
 
   /* TODO: Handle case where job has finished. */
+  if(job->state == FINISHED)
+  {
+    *statusp = exitcode(job);
+    deljob(job);
+  }
 
   return state;
 }
@@ -134,6 +211,16 @@ bool resumejob(int j, int bg, sigset_t *mask) {
     return false;
 
   /* TODO: Continue stopped job. Possibly move job to foreground slot. */
+  jobs[j].state = RUNNING; // prevent race condition
+  if(bg == FG)
+    set_tty_group(jobs[j].pgid); // prevent race condition
+  killpg(jobs[j].pgid, SIGCONT);
+  if(bg == FG)
+  {
+    assert(j != 0);
+    movejob(j, 0);
+    monitorjob(mask);
+  }
 
   return true;
 }
@@ -145,6 +232,10 @@ bool killjob(int j) {
   debug("[%d] killing '%s'\n", j, jobs[j].command);
 
   /* TODO: I love the smell of napalm in the morning. */
+  assert(jobs[j].pgid != 0);
+  if(jobs[j].state == STOPPED)
+    killpg(jobs[j].pgid, SIGCONT); // prevent shell blocking
+  killpg(jobs[j].pgid, SIGTERM);
 
   return true;
 }
@@ -156,17 +247,55 @@ void watchjobs(int which) {
       continue;
 
     /* TODO: Report job number, state, command and exit code or signal. */
+    if(which == ALL || which == FINISHED)
+    {
+      int state = jobs[j].state;
+      int _exitcode = exitcode(&jobs[j]);
+      if(state == FINISHED)
+      {
+        printf("[%d] '%s' – finished, ", j, jobs[j].command);
+        if(WIFEXITED(_exitcode))
+          printf("exited with code %d\n", WEXITSTATUS(_exitcode));
+        if(WIFSIGNALED(_exitcode))
+          printf("signaled by signal %d (%s)\n", WTERMSIG(_exitcode), signal_name(WTERMSIG(_exitcode)));
+        deljob(&jobs[j]);
+      }
+    }
+    if(which == ALL || which == RUNNING)
+    {
+      if(jobs[j].state == RUNNING)
+        printf("[%d] '%s' – running\n", j, jobs[j].command);
+    }
+    if(which == ALL || which == STOPPED)
+    {
+      if(jobs[j].state == STOPPED)
+        printf("[%d] '%s' – stopped\n", j, jobs[j].command);
+    }
   }
 }
 
 /* Monitor job execution. If it gets stopped move it to background.
  * When a job has finished or has been stopped move shell to foreground. */
 int monitorjob(sigset_t *mask) {
-  int exitcode, state;
+  // int exitcode, state; // won't compile
+  int _exitcode, state;
 
   /* TODO: Following code requires use of Tcsetpgrp of tty_fd. */
+  state = jobstate(0, &_exitcode);
+  tcsetpgrp(tty_fd, jobs[0].pgid);
+  while((state = jobstate(0, &_exitcode)) == RUNNING)
+  {
+    Sigsuspend(mask);
+  }
+  if(state == STOPPED)
+  {
+    size_t new_idx = allocjob();
+    movejob(0, new_idx);
+    printf("[%ld] – stopped '%s'\n", new_idx, jobs[new_idx].command);
+  }
+  tcsetpgrp(tty_fd, getpgrp());
 
-  return exitcode;
+  return _exitcode;
 }
 
 /* Called just at the beginning of shell's life. */
@@ -193,10 +322,32 @@ void shutdownjobs(void) {
   Sigprocmask(SIG_BLOCK, &sigchld_mask, &mask);
 
   /* TODO: Kill remaining jobs and wait for them to finish. */
+  for(size_t job_idx = 0; job_idx < njobmax; job_idx++)
+  {
+    if(jobs[job_idx].pgid != 0 && jobs[job_idx].state != FINISHED)
+    {
+      if(job_idx != FG)
+      {
+        tcsetpgrp(tty_fd, jobs[job_idx].pgid);
+      }
+      killjob(job_idx);
+
+      while(jobs[job_idx].state != FINISHED)
+        Sigsuspend(&mask);
+
+      if(job_idx != FG)
+        tcsetpgrp(tty_fd, getpgrp());
+    }
+  }
 
   watchjobs(FINISHED);
 
   Sigprocmask(SIG_SETMASK, &mask, NULL);
 
   Close(tty_fd);
+}
+
+void set_tty_group(pid_t pgrp)
+{
+  tcsetpgrp(tty_fd, pgrp);
 }

@@ -83,6 +83,11 @@ static int do_job(token_t *token, int ntokens, bool bg) {
     external_command(token);
   }
   // parent
+  setpgid(child_pid, child_pid);
+    if(input != -1)
+  close(input);
+    if(output != -1)
+  close(output);
   job_idx = addjob(child_pid, bg);
   addproc(job_idx, child_pid, token);
   if(!bg)
@@ -119,7 +124,9 @@ static pid_t do_stage(pid_t pgid, sigset_t *mask, int input, int output,
     external_command(token);
   }
   setpgid(child_pid, pgid);
+    if(input != -1)
   close(input);
+    if(output != -1)
   close(output);
 
   return child_pid;

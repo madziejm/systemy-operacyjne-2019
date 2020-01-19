@@ -58,6 +58,8 @@ int monitorjob(sigset_t *mask);
 int builtin_command(char **argv);
 noreturn void external_command(char **argv);
 
+void set_tty_group(pid_t pgrp);
+
 /* Used by Sigprocmask to enter critical section protecting against SIGCHLD. */
 extern sigset_t sigchld_mask;
 
