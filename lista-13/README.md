@@ -13,7 +13,8 @@ Należy przygotować się do zajęć czytając następujące rozdziały 
 
 ``` python
  1 class Account {
- 2   private int balance;3synchronized void withdraw(int n) { balance -= n; }
+ 2   private int balance;
+ 3   synchronized void withdraw(int n) { balance -= n; }
  4   synchronized void deposit(int n) { balance += n; }
  5 }
  6
@@ -22,6 +23,20 @@ Należy przygotować się do zajęć czytając następujące rozdziały 
  9   to.deposit(amount);
 10 }
 ```
+
+Synchronised – blokada na obiekt.
+
+W tym kodzie jest zakleszczenie: sytuacja przelewów pomiędzy dwoma kontami w dwie strony.
+Sposób naprawienia to szeregowanie kont: pozwalamy na blokowanie zasobów w kolejności rosnących numerów.
+
+
+Dlaczego bokady są złe?
+* duża złożoność umysłowa
+* może ich być za mało -> sytuacja braku wyłączności na jakiś zasób
+* może ich być dużo blokad -> możliwy deadlock
+* problem zagubionej pobudki
+* trudne do debugowania
+* ciężko brać blokady w dobrej kolejności
 
 ## Zadanie 2
 
@@ -33,6 +48,51 @@ Należy przygotować się do zajęć czytając następujące rozdziały 
 * *operacja «`acquire`» wymusza porządek „pierwszy na wejściu, pierwszy na wyjściu” (ang. FIFO).*
 
 *Podaj co najmniej jeden kontrprzykład wskazujący na to, że poniższe rozwiązanie jest niepoprawne.*
+
+``` python
+mutex = semaphore(1)  # implementuje sekcję krytyczną
+block = semaphore(0)  # oczekiwanie na opuszczenie zasobu
+active = 0 # liczba użytkowników zasobu
+waiting = 0 # liczba użytkowników oczekujących na zasób
+must_wait = False # czy kolejni użytkownicy muszą czekać?
+
+ 1 def acquire():
+ 2   mutex.wait()
+ 3   if must_wait: # czy while coś zmieni?
+ 4     waiting += 1
+ 5     mutex.signal()
+ 6     block.wait()
+ 7     mutex.wait()
+ 8     waiting -= 1
+ 9   active += 1
+10   must_wait = (active == 3)
+11   mutex.signal()
+12 def release():
+13   mutex.wait()
+14   active -= 1
+15   if active == 0:
+16     n = min(waiting, 3);
+17     while n > 0:
+18       block.signal()
+19       n -= 1
+20     must_wait = False
+21   mutex.signal()
+```
+
+|       A        |       B        |       C        |      D      |             E              |
+| :------------: | :------------: | :------------: | :---------: | :------------------------: |
+| aquire (całe)  |                |                |             |                            |
+|                | aquire (całe)  |
+|                |                | aquire (całe)  |
+|                |                |                | aquire: 1–5 |
+| release (całe) |                |                |             |                            |
+|                | release (całe) |
+|                |                | release (całe) |
+|                |                |                |             | aquire – nie wejdzie do if |
+
+W tym przykładzie dojdzie do złamania kolejności, bo D zakończy aquire później od E.
+
+TODO: Znaleźć przykład dla systemu wieloprocesorowego.
 
 *Ściągnij ze strony przedmiotu archiwum «`so19_lista_13.tar.gz`», następnie rozpakuj i zapoznaj się z dostarczonymi plikami.  
 **UWAGA!** Można modyfikować tylko te fragmenty programów, które zostały oznaczone w komentarzu napisem «`TODO`». Możesz użyć procedury «`outc`» do prezentowania stanu programu, co może się przydać w trakcie odpluskwiania. Należy używać odpowiednich procedur opakowujących, np. «`Sem_wait`» i «`Sem_post`», z biblioteki libcsapp.*

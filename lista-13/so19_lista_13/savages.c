@@ -9,14 +9,26 @@ static __unused void outc(char c) {
 
 static struct {
   /* TODO: Put semaphores and shared variables here. */
+  int servings;
+  sem_t mutex;
+  sem_t empty_pot;
+  sem_t full_pot;
 } *shared = NULL;
 
 
 static void savage(void) {
   for (;;) {
     /* TODO Take a meal or wait for it to be prepared. */
-
     /* Sleep and digest. */
+    Sem_wait(&(shared->mutex));
+    if(shared->servings == 0)
+    {
+      Sem_post(&(shared->empty_pot));
+      Sem_wait(&(shared->full_pot));
+    }
+    shared->servings--;
+    // outc('s');
+    Sem_post(&(shared->mutex));
     usleep(rand() % 1000 + 1000);
   }
 
@@ -27,6 +39,11 @@ static void cook(void) {
   for (;;) {
     /* TODO Cook is asleep as long as there are meals.
      * If woken up they cook exactly M meals. */
+    assert(shared->servings == 0);
+    Sem_wait(&(shared->empty_pot));
+    // outc('c');
+    shared->servings += M;
+    Sem_post(&(shared->full_pot));
   }
 }
 
@@ -35,7 +52,10 @@ static void cook(void) {
 int main(void) {
   shared = Mmap(NULL, getpagesize(), PROT_READ|PROT_WRITE, MAP_ANON|MAP_SHARED,
                 -1, 0);
-
+  shared->servings = M;
+  Sem_init(&(shared->mutex), 1, 1);
+  Sem_init(&(shared->empty_pot), 1, 0);
+  Sem_init(&(shared->full_pot), 1, 0);
   /* TODO: Initialize semaphores and other shared state. */
 
   for (int i = 0; i < N; i++)

@@ -6,6 +6,11 @@ static __unused void outc(char c) {
 
 typedef struct {
   /* TODO: Use this structure to store barrier internal state. */
+  int n;
+  size_t count;
+  sem_t bramka;
+  sem_t bramka2;
+  sem_t mutex;
 } barrier_t;
 
 static barrier_t *barrier_init(int n) {
@@ -16,15 +21,43 @@ static barrier_t *barrier_init(int n) {
                       MAP_ANON|MAP_SHARED, -1, 0);
 
   /* TODO: Initialize barrier internal state. */
+  b->n = n;
+  b->count = 0;
+  Sem_init(&b->bramka, 1, n);
+  Sem_init(&b->bramka2, 1, 0);
+  Sem_init(&b->mutex, 1, 1);
+
   return b;
 }
 
 static void barrier_wait(barrier_t *b) {
   /* TODO: Provide wait procedure implementation here. */
+  Sem_wait(&b->bramka);
+  Sem_wait(&b->mutex);
+  b->count += 1;
+  // printf("[%d] count: %ld\n", getpid(), b->count);
+  if (b->count == b->n) {
+    // outc('\n');
+    for(size_t k = 0; k < b->n - 1; k++)
+      Sem_post(&b->bramka2);
+    b->count = 0;
+    Sem_post(&b->mutex);
+    for(size_t k = 0; k < b->n; k++)
+      Sem_post(&b->bramka);
+  }
+  else
+  {
+  Sem_post(&b->mutex);
+  Sem_wait(&b->bramka2);
+  }
 }
 
 static void barrier_destroy(barrier_t *b) {
   /* TODO: Provide destroy procedure implementation here. */
+  Sem_destroy(&b->mutex);
+  Sem_destroy(&b->bramka);
+  Sem_destroy(&b->bramka2);
+  Munmap(b, sizeof(barrier_t));
 }
 
 #define K 100
