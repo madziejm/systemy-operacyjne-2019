@@ -1,15 +1,31 @@
 /* WARNING: This code is buggy! */
 #include "csapp.h"
 
+#define BUGGY
+
 /* Global shared variable */
 static volatile long cnt = 0; /* Counter */
+
+#ifndef BUGGY
+pthread_mutex_t lock;
+#endif
 
 /* Thread routine */
 static void *thread(void *vargp) {
   long i, niters = *((long *)vargp);
 
   for (i = 0; i < niters; i++)
+  {
+    #ifndef BUGGY
+    pthread_mutex_lock(&lock);
+    #endif
+
     cnt++;
+
+    #ifndef BUGGY
+    pthread_mutex_unlock(&lock);
+    #endif
+  }
 
   return NULL;
 }
@@ -21,6 +37,10 @@ int main(int argc, char **argv) {
 
   long niters = atoi(argv[1]);
   pthread_t tid1, tid2;
+
+  #ifndef BUGGY
+  pthread_mutex_init(&lock, NULL);
+  #endif
 
   /* Create threads and wait for them to finish */
   Pthread_create(&tid1, NULL, thread, &niters);

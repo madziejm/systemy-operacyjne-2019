@@ -97,11 +97,41 @@ int main(int argc, char **argv) {
       continue;
 
     /* TODO: If listening descriptor ready, add new client to the pool. */
+    if(fds[0].revents & POLLIN)
+    {
+      struct sockaddr_storage clientaddr;
+      socklen_t size = sizeof clientaddr;
+      int connfd = Accept(listenfd, (struct sockaddr*)&clientaddr, &size);
+      // if(clientaddr.ss_family == AF_INET)
+      //   host = inet_ntoa(((struct sockaddr_in*)&clientaddr)->sin_addr);
+      //   // host = ((struct sockaddr_in*)&clientaddr)->sin_addr.s_addr;
+      //   // printf("port is %d x%dx\n", ((struct sockaddr_in*)&clientaddr)->sin_port,  ((struct sockaddr_in*)&clientaddr)->sin_addr.s_addr);
+      // if(clientaddr.ss_family == AF_INET6)
+      //   // host = inet_ntoa(((struct sockaddr_in6*)&clientaddr)->sin6_addr);
+      //   host = "ipv6 host";
+
+      char* host = malloc(64);
+      sa_family_t address_family = clientaddr.ss_family;
+      inet_ntop(address_family,
+        address_family == AF_INET ?
+          (void*)(&((struct sockaddr_in*)&clientaddr)->sin_addr)
+          : (void*)(&((struct sockaddr_in6*)&clientaddr)->sin6_addr),
+        host,
+        size);
+      addclient(connfd, host, argv[1]);
+      free(host);
+    }
 
     /* TODO: Echo a text line from each ready connected descriptor.
      * Delete a client when end-of-file condition was detected on socket. */
     int i = 1;
     while (nready > 0) {
+      while(!(fds[i].revents & POLLIN) && ++i < nfds) {}
+      if(i == nfds)
+        break;
+      size_t read_bytes = clientread(i);
+      if(read_bytes == 0)
+        delclient(i);
     }
   }
 

@@ -5,7 +5,7 @@ include Makefile.include
 
 LDLIBS += -lpthread
 
-# bug-1: CC += -fsanitize=thread
-# bug-2: CC += -fsanitize=thread
+bug-1: CC += -fsanitize=thread
+bug-2: CC += -fsanitize=thread
 
 # vim: ts=8 sw=8 noet
